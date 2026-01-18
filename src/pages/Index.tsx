@@ -32,6 +32,13 @@ type FixedExpense = {
   category: string;
 };
 
+type Budget = {
+  id: string;
+  category: string;
+  plannedAmount: number;
+  name: string;
+};
+
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты', color: '#0EA5E9' },
   { value: 'transport', label: 'Транспорт', color: '#F97316' },
@@ -56,10 +63,16 @@ const Index = () => {
     { id: '2', name: 'Интернет', amount: 800, category: 'utilities' },
     { id: '3', name: 'Абонемент в зал', amount: 3000, category: 'health' },
   ]);
+  const [budgets, setBudgets] = useState<Budget[]>([
+    { id: '1', category: 'food', plannedAmount: 15000, name: 'Бюджет на продукты' },
+    { id: '2', category: 'entertainment', plannedAmount: 10000, name: 'Развлечения' },
+  ]);
 
   const [newExpense, setNewExpense] = useState({ amount: '', category: 'food', description: '' });
   const [newIncome, setNewIncome] = useState({ amount: '', source: '' });
   const [newFixed, setNewFixed] = useState({ name: '', amount: '', category: 'utilities' });
+  const [newBudget, setNewBudget] = useState({ name: '', amount: '', category: 'food' });
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
   const currentMonth = '2026-01';
   const currentDate = new Date();
@@ -150,6 +163,56 @@ const Index = () => {
     setFixedExpenses(fixedExpenses.filter(f => f.id !== id));
   };
 
+  const addBudget = () => {
+    if (newBudget.name && newBudget.amount) {
+      setBudgets([
+        ...budgets,
+        {
+          id: Date.now().toString(),
+          name: newBudget.name,
+          plannedAmount: parseFloat(newBudget.amount),
+          category: newBudget.category,
+        },
+      ]);
+      setNewBudget({ name: '', amount: '', category: 'food' });
+    }
+  };
+
+  const deleteBudget = (id: string) => {
+    setBudgets(budgets.filter(b => b.id !== id));
+  };
+
+  const updateBudget = () => {
+    if (editingBudget && newBudget.name && newBudget.amount) {
+      setBudgets(
+        budgets.map(b =>
+          b.id === editingBudget.id
+            ? { ...b, name: newBudget.name, plannedAmount: parseFloat(newBudget.amount), category: newBudget.category }
+            : b
+        )
+      );
+      setEditingBudget(null);
+      setNewBudget({ name: '', amount: '', category: 'food' });
+    }
+  };
+
+  const startEditBudget = (budget: Budget) => {
+    setEditingBudget(budget);
+    setNewBudget({ name: budget.name, amount: budget.plannedAmount.toString(), category: budget.category });
+  };
+
+  const cancelEditBudget = () => {
+    setEditingBudget(null);
+    setNewBudget({ name: '', amount: '', category: 'food' });
+  };
+
+  const getBudgetProgress = (budget: Budget) => {
+    const spent = expenses
+      .filter(e => e.category === budget.category && e.date.startsWith(currentMonth))
+      .reduce((sum, e) => sum + e.amount, 0);
+    return { spent, remaining: budget.plannedAmount - spent, percentage: (spent / budget.plannedAmount) * 100 };
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-white sticky top-0 z-10">
@@ -170,7 +233,7 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 gap-2">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-2">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Icon name="Home" size={16} />
               <span className="hidden sm:inline">Главная</span>
@@ -186,6 +249,10 @@ const Index = () => {
             <TabsTrigger value="fixed" className="flex items-center gap-2">
               <Icon name="Calendar" size={16} />
               <span className="hidden sm:inline">Фиксированные</span>
+            </TabsTrigger>
+            <TabsTrigger value="planning" className="flex items-center gap-2">
+              <Icon name="Clipboard" size={16} />
+              <span className="hidden sm:inline">Планирование</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <Icon name="PieChart" size={16} />
@@ -499,6 +566,168 @@ const Index = () => {
                   })}
                   {fixedExpenses.length === 0 && (
                     <p className="text-center text-muted-foreground py-12">Пока нет фиксированных расходов</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="planning" className="space-y-6 animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>Планирование бюджета</CardTitle>
+                <CardDescription>Создайте планы трат по категориям и отслеживайте прогресс</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Название плана</Label>
+                    <Input
+                      placeholder="Бюджет на продукты..."
+                      value={newBudget.name}
+                      onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Запланированная сумма</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={newBudget.amount}
+                      onChange={e => setNewBudget({ ...newBudget, amount: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Категория</Label>
+                    <Select
+                      value={newBudget.category}
+                      onValueChange={value => setNewBudget({ ...newBudget, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EXPENSE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {editingBudget ? (
+                    <>
+                      <Button onClick={updateBudget} className="flex-1">
+                        <Icon name="Save" size={16} className="mr-2" />
+                        Сохранить изменения
+                      </Button>
+                      <Button onClick={cancelEditBudget} variant="outline" className="flex-1">
+                        <Icon name="X" size={16} className="mr-2" />
+                        Отменить
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={addBudget} className="w-full">
+                      <Icon name="Plus" size={16} className="mr-2" />
+                      Добавить план
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  {budgets.map(budget => {
+                    const category = EXPENSE_CATEGORIES.find(c => c.value === budget.category);
+                    const progress = getBudgetProgress(budget);
+                    const isOverBudget = progress.spent > budget.plannedAmount;
+                    
+                    return (
+                      <Card key={budget.id} className={`${isOverBudget ? 'border-red-500' : 'border-green-500'} border-2`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{budget.name}</CardTitle>
+                              <CardDescription>{category?.label}</CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditBudget(budget)}
+                              >
+                                <Icon name="Pencil" size={16} className="text-blue-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteBudget(budget.id)}
+                              >
+                                <Icon name="Trash2" size={16} className="text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="p-3 bg-blue-50 rounded-lg">
+                              <p className="text-xs text-muted-foreground mb-1">План</p>
+                              <p className="font-bold text-blue-600">{budget.plannedAmount.toLocaleString('ru-RU')} ₽</p>
+                            </div>
+                            <div className={`p-3 rounded-lg ${isOverBudget ? 'bg-red-50' : 'bg-orange-50'}`}>
+                              <p className="text-xs text-muted-foreground mb-1">Потрачено</p>
+                              <p className={`font-bold ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
+                                {progress.spent.toLocaleString('ru-RU')} ₽
+                              </p>
+                            </div>
+                            <div className={`p-3 rounded-lg ${isOverBudget ? 'bg-red-50' : 'bg-green-50'}`}>
+                              <p className="text-xs text-muted-foreground mb-1">Остаток</p>
+                              <p className={`font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                                {progress.remaining.toLocaleString('ru-RU')} ₽
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">Использовано</span>
+                              <span className={`text-sm font-bold ${isOverBudget ? 'text-red-600' : 'text-blue-600'}`}>
+                                {progress.percentage.toFixed(1)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={Math.min(progress.percentage, 100)} 
+                              className={`h-3 ${isOverBudget ? '[&>div]:bg-red-500' : ''}`}
+                            />
+                            {isOverBudget && (
+                              <p className="text-xs text-red-600 mt-2 font-medium">
+                                ⚠️ Превышение бюджета на {(progress.spent - budget.plannedAmount).toLocaleString('ru-RU')} ₽
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">Расходы в этой категории:</p>
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {expenses
+                                .filter(e => e.category === budget.category && e.date.startsWith(currentMonth))
+                                .map(expense => (
+                                  <div key={expense.id} className="flex justify-between text-xs p-2 bg-secondary/30 rounded">
+                                    <span>{expense.description}</span>
+                                    <span className="font-medium text-orange-600">-{expense.amount} ₽</span>
+                                  </div>
+                                ))}
+                              {expenses.filter(e => e.category === budget.category && e.date.startsWith(currentMonth)).length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-2">Пока нет расходов</p>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  {budgets.length === 0 && (
+                    <p className="text-center text-muted-foreground py-12">Создайте первый план бюджета</p>
                   )}
                 </div>
               </CardContent>
