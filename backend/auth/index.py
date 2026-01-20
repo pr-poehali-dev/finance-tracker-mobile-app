@@ -175,7 +175,7 @@ def verify_code(email: str, code: str) -> dict:
             'isBase64Encoded': False
         }
     
-    if stored_code != code:
+    if str(stored_code).strip() != str(code).strip():
         cur.close()
         conn.close()
         return {
