@@ -7,7 +7,9 @@ import { api, User, Transaction } from '@/lib/api';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import ExpensesTab from '@/components/tabs/ExpensesTab';
 import IncomeTab from '@/components/tabs/IncomeTab';
-import { FixedTab, ForecastTab, SettingsTab } from '@/components/tabs/OtherTabs';
+import { ForecastTab, SettingsTab } from '@/components/tabs/OtherTabs';
+import FixedExpensesTab from '@/components/tabs/FixedExpensesTab';
+import PlanningTab from '@/components/tabs/PlanningTab';
 
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты', color: '#0EA5E9' },
@@ -205,7 +207,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 h-12">
+          <TabsList className="grid w-full grid-cols-7 h-12">
             <TabsTrigger value="overview" className="text-base">
               <Icon name="LayoutDashboard" size={18} className="mr-2" />
               Обзор
@@ -225,6 +227,10 @@ const Index = () => {
             <TabsTrigger value="forecast" className="text-base">
               <Icon name="LineChart" size={18} className="mr-2" />
               Прогноз
+            </TabsTrigger>
+            <TabsTrigger value="planning" className="text-base">
+              <Icon name="Target" size={18} className="mr-2" />
+              Планирование
             </TabsTrigger>
             <TabsTrigger value="settings" className="text-base">
               <Icon name="Settings" size={18} className="mr-2" />
@@ -264,7 +270,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="fixed">
-            <FixedTab />
+            <FixedExpensesTab />
           </TabsContent>
 
           <TabsContent value="forecast">
@@ -282,6 +288,10 @@ const Index = () => {
               projectedBalance={projectedBalance}
               expensesByCategory={expensesByCategory}
             />
+          </TabsContent>
+
+          <TabsContent value="planning">
+            <PlanningTab />
           </TabsContent>
 
           <TabsContent value="settings">

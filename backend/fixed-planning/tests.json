@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "Test unauthorized access",
+      "method": "GET",
+      "path": "/",
+      "queryStringParameters": {
+        "type": "fixed"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test invalid type parameter",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "Authorization": "Bearer invalid_token"
+      },
+      "body": {
+        "type": "invalid"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

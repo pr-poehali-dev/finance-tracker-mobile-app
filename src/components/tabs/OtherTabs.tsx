@@ -28,28 +28,6 @@ interface OtherTabsProps {
   expensesByCategory: Array<{ name: string; value: number; color: string }>;
 }
 
-export const FixedTab = () => {
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <Card>
-        <CardHeader>
-          <CardTitle>Фиксированные расходы</CardTitle>
-          <CardDescription>Регулярные ежемесячные платежи</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-6 border-2 border-dashed rounded-lg text-center text-muted-foreground">
-              <Icon name="Calendar" size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Раздел в разработке</p>
-              <p className="text-sm mt-2">Здесь будут отображаться регулярные платежи</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
 export const ForecastTab = ({
   expenses,
   isCurrentMonth,
