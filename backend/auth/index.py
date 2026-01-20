@@ -3,38 +3,40 @@ import os
 from datetime import datetime, timedelta
 import jwt
 import psycopg2
-from urllib.parse import urlencode, parse_qs
-import requests
+import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 def handler(event: dict, context) -> dict:
-    '''API для авторизации пользователей через Google OAuth'''
+    '''API для авторизации пользователей по email с 6-значным кодом'''
     
     method = event.get('httpMethod', 'GET')
-    path = event.get('requestContext', {}).get('http', {}).get('path', '')
-    query_params = event.get('queryStringParameters') or {}
+    body = json.loads(event.get('body', '{}')) if event.get('body') else {}
     
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization'
             },
             'body': '',
             'isBase64Encoded': False
         }
     
-    if method == 'GET' and 'code' in query_params:
-        return handle_google_callback(query_params)
-    
-    if method == 'GET' and 'login' in query_params:
-        return initiate_google_login()
-    
     if method == 'POST':
-        body = json.loads(event.get('body', '{}'))
-        if 'token' in body:
-            return verify_token(body['token'])
+        action = body.get('action')
+        
+        if action == 'send_code':
+            return send_verification_code(body.get('email'))
+        
+        elif action == 'verify_code':
+            return verify_code(body.get('email'), body.get('code'))
+        
+        elif action == 'verify_token':
+            return verify_token(body.get('token'))
     
     return {
         'statusCode': 400,
@@ -43,76 +45,153 @@ def handler(event: dict, context) -> dict:
         'isBase64Encoded': False
     }
 
-def initiate_google_login() -> dict:
-    '''Инициирует процесс авторизации через Google'''
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    redirect_uri = 'https://functions.poehali.dev/8b7a1651-e473-4bba-865c-e549f7445219'
+def send_verification_code(email: str) -> dict:
+    '''Отправляет 6-значный код на email'''
     
-    params = {
-        'client_id': client_id,
-        'redirect_uri': redirect_uri,
-        'response_type': 'code',
-        'scope': 'openid email profile',
-        'access_type': 'online'
-    }
+    if not email or '@' not in email:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Invalid email'}),
+            'isBase64Encoded': False
+        }
     
-    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-    
-    return {
-        'statusCode': 302,
-        'headers': {
-            'Location': auth_url,
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': '',
-        'isBase64Encoded': False
-    }
-
-def handle_google_callback(query_params: dict) -> dict:
-    '''Обрабатывает ответ от Google OAuth'''
-    code = query_params.get('code')
-    
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-    redirect_uri = 'https://functions.poehali.dev/8b7a1651-e473-4bba-865c-e549f7445219'
-    
-    token_response = requests.post('https://oauth2.googleapis.com/token', data={
-        'code': code,
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'redirect_uri': redirect_uri,
-        'grant_type': 'authorization_code'
-    })
-    
-    token_data = token_response.json()
-    access_token = token_data.get('access_token')
-    
-    user_info_response = requests.get(
-        'https://www.googleapis.com/oauth2/v2/userinfo',
-        headers={'Authorization': f'Bearer {access_token}'}
-    )
-    
-    user_info = user_info_response.json()
+    code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
     
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
     cur = conn.cursor()
+    schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
     
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    
+    cur.execute(f'''
+        INSERT INTO {schema}.verification_codes (email, code, expires_at)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (email) DO UPDATE 
+        SET code = EXCLUDED.code, expires_at = EXCLUDED.expires_at, created_at = CURRENT_TIMESTAMP
+    ''', (email.lower(), code, expires_at))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    try:
+        send_email(email, code)
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to send email: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'success': True, 'message': 'Code sent to email'}),
+        'isBase64Encoded': False
+    }
+
+def send_email(to_email: str, code: str):
+    '''Отправляет email с кодом'''
+    
+    smtp_host = os.environ.get('SMTP_HOST')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_password = os.environ.get('SMTP_PASSWORD')
+    
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = f'Ваш код доступа: {code}'
+    msg['From'] = smtp_user
+    msg['To'] = to_email
+    
+    html = f'''
+    <html>
+      <body style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #f97316;">Финансовый трекер</h2>
+        <p>Ваш код для входа:</p>
+        <h1 style="color: #f97316; font-size: 48px; letter-spacing: 8px;">{code}</h1>
+        <p style="color: #666;">Код действителен 10 минут.</p>
+        <p style="color: #999; font-size: 12px;">Если вы не запрашивали этот код, просто проигнорируйте это письмо.</p>
+      </body>
+    </html>
+    '''
+    
+    msg.attach(MIMEText(html, 'html'))
+    
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
+
+def verify_code(email: str, code: str) -> dict:
+    '''Проверяет код и возвращает JWT токен'''
+    
+    if not email or not code:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Email and code required'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
     schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
     
     cur.execute(f'''
-        INSERT INTO {schema}.users (google_id, email, name, avatar_url)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (google_id) DO UPDATE 
-        SET email = EXCLUDED.email, name = EXCLUDED.name, avatar_url = EXCLUDED.avatar_url
-        RETURNING id, email, name, avatar_url
-    ''', (
-        user_info['id'],
-        user_info['email'],
-        user_info.get('name'),
-        user_info.get('picture')
-    ))
+        SELECT code, expires_at FROM {schema}.verification_codes
+        WHERE email = %s
+    ''', (email.lower(),))
+    
+    result = cur.fetchone()
+    
+    if not result:
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 404,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Code not found'}),
+            'isBase64Encoded': False
+        }
+    
+    stored_code, expires_at = result
+    
+    if datetime.utcnow() > expires_at:
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 401,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Code expired'}),
+            'isBase64Encoded': False
+        }
+    
+    if stored_code != code:
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 401,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Invalid code'}),
+            'isBase64Encoded': False
+        }
+    
+    cur.execute(f'''
+        INSERT INTO {schema}.users (email, name)
+        VALUES (%s, %s)
+        ON CONFLICT (email) DO UPDATE 
+        SET name = EXCLUDED.name
+        RETURNING id, email, name
+    ''', (email.lower(), email.split('@')[0]))
     
     user = cur.fetchone()
+    
+    cur.execute(f'''
+        DELETE FROM {schema}.verification_codes WHERE email = %s
+    ''', (email.lower(),))
+    
     conn.commit()
     cur.close()
     conn.close()
@@ -124,20 +203,31 @@ def handle_google_callback(query_params: dict) -> dict:
         'exp': datetime.utcnow() + timedelta(days=30)
     }, jwt_secret, algorithm='HS256')
     
-    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-    
     return {
-        'statusCode': 302,
-        'headers': {
-            'Location': f"{frontend_url}?token={token}",
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': '',
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({
+            'token': token,
+            'user': {
+                'id': user[0],
+                'email': user[1],
+                'name': user[2]
+            }
+        }),
         'isBase64Encoded': False
     }
 
 def verify_token(token: str) -> dict:
     '''Проверяет JWT токен и возвращает информацию о пользователе'''
+    
+    if not token:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Token required'}),
+            'isBase64Encoded': False
+        }
+    
     jwt_secret = os.environ.get('JWT_SECRET')
     
     try:
@@ -145,11 +235,10 @@ def verify_token(token: str) -> dict:
         
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
-        
         schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
         
         cur.execute(f'''
-            SELECT id, email, name, avatar_url FROM {schema}.users WHERE id = %s
+            SELECT id, email, name FROM {schema}.users WHERE id = %s
         ''', (payload['user_id'],))
         
         user = cur.fetchone()
@@ -171,8 +260,7 @@ def verify_token(token: str) -> dict:
                 'user': {
                     'id': user[0],
                     'email': user[1],
-                    'name': user[2],
-                    'avatar_url': user[3]
+                    'name': user[2]
                 }
             }),
             'isBase64Encoded': False

@@ -1,20 +1,28 @@
 {
   "tests": [
     {
-      "name": "Test login redirect",
-      "method": "GET",
-      "path": "/?login=true",
-      "expectedStatus": 302,
-      "bodyMatcher": "partial"
-    },
-    {
-      "name": "Test token verification with invalid token",
+      "name": "Test send code with invalid email",
       "method": "POST",
       "path": "/",
       "body": {
-        "token": "invalid_token"
+        "action": "send_code",
+        "email": "invalid"
       },
-      "expectedStatus": 401,
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test verify code without email",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "verify_code",
+        "code": "123456"
+      },
+      "expectedStatus": 400,
       "expectedBody": {
         "error": "string"
       },

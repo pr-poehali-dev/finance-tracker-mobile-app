@@ -5,7 +5,6 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  avatar_url: string;
 }
 
 export interface Transaction {
@@ -18,8 +17,50 @@ export interface Transaction {
 
 export const api = {
   auth: {
-    login: () => {
-      window.location.href = `${AUTH_URL}?login=true`;
+    sendCode: async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+      try {
+        const response = await fetch(AUTH_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'send_code', email }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Failed to send code' };
+        }
+        
+        return { success: true, message: data.message };
+      } catch (error) {
+        console.error('Send code failed:', error);
+        return { success: false, error: 'Network error' };
+      }
+    },
+    
+    verifyCode: async (email: string, code: string): Promise<{ success: boolean; token?: string; user?: User; error?: string }> => {
+      try {
+        const response = await fetch(AUTH_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'verify_code', email, code }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Invalid code' };
+        }
+        
+        return { success: true, token: data.token, user: data.user };
+      } catch (error) {
+        console.error('Verify code failed:', error);
+        return { success: false, error: 'Network error' };
+      }
     },
     
     verifyToken: async (token: string): Promise<User | null> => {
@@ -29,7 +70,7 @@ export const api = {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ action: 'verify_token', token }),
         });
         
         if (!response.ok) return null;

@@ -38,14 +38,6 @@ const Index = () => {
   const [newIncome, setNewIncome] = useState({ amount: '', description: '' });
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    
-    if (token) {
-      api.auth.setToken(token);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-    
     const checkAuth = async () => {
       const savedToken = api.auth.getToken();
       if (savedToken) {
