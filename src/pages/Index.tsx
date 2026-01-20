@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,35 +9,8 @@ import Icon from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-type Expense = {
-  id: string;
-  date: string;
-  amount: number;
-  category: string;
-  description: string;
-};
-
-type Income = {
-  id: string;
-  month: string;
-  amount: number;
-  source: string;
-};
-
-type FixedExpense = {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-};
-
-type Budget = {
-  id: string;
-  category: string;
-  plannedAmount: number;
-  name: string;
-};
+import LoginPage from '@/components/LoginPage';
+import { api, User, Transaction } from '@/lib/api';
 
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты', color: '#0EA5E9' },
@@ -49,48 +22,158 @@ const EXPENSE_CATEGORIES = [
 ];
 
 const Index = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [expenses, setExpenses] = useState<Expense[]>([
-    { id: '1', date: '2026-01-15', amount: 1200, category: 'food', description: 'Магазин' },
-    { id: '2', date: '2026-01-16', amount: 500, category: 'transport', description: 'Такси' },
-    { id: '3', date: '2026-01-17', amount: 2500, category: 'entertainment', description: 'Кино' },
-  ]);
-  const [incomes, setIncomes] = useState<Income[]>([
-    { id: '1', month: '2026-01', amount: 80000, source: 'Зарплата' },
-  ]);
-  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([
-    { id: '1', name: 'Аренда', amount: 25000, category: 'utilities' },
-    { id: '2', name: 'Интернет', amount: 800, category: 'utilities' },
-    { id: '3', name: 'Абонемент в зал', amount: 3000, category: 'health' },
-  ]);
-  const [budgets, setBudgets] = useState<Budget[]>([
-    { id: '1', category: 'food', plannedAmount: 15000, name: 'Бюджет на продукты' },
-    { id: '2', category: 'entertainment', plannedAmount: 10000, name: 'Развлечения' },
-  ]);
-
+  
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
+  
+  const [expenses, setExpenses] = useState<Transaction[]>([]);
+  const [incomes, setIncomes] = useState<Transaction[]>([]);
+  
   const [newExpense, setNewExpense] = useState({ amount: '', category: 'food', description: '' });
-  const [newIncome, setNewIncome] = useState({ amount: '', source: '' });
-  const [newFixed, setNewFixed] = useState({ name: '', amount: '', category: 'utilities' });
-  const [newBudget, setNewBudget] = useState({ name: '', amount: '', category: 'food' });
-  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [newIncome, setNewIncome] = useState({ amount: '', description: '' });
 
-  const currentMonth = '2026-01';
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      api.auth.setToken(token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
+    const checkAuth = async () => {
+      const savedToken = api.auth.getToken();
+      if (savedToken) {
+        const userData = await api.auth.verifyToken(savedToken);
+        if (userData) {
+          setUser(userData);
+        } else {
+          api.auth.logout();
+        }
+      }
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadTransactions();
+    }
+  }, [user, selectedDate]);
+
+  const loadTransactions = async () => {
+    try {
+      const [expensesData, incomesData] = await Promise.all([
+        api.transactions.getAll('expense', selectedDate.year, selectedDate.month),
+        api.transactions.getAll('income', selectedDate.year, selectedDate.month),
+      ]);
+      setExpenses(expensesData);
+      setIncomes(incomesData);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+    }
+  };
+
+  const addExpense = async () => {
+    if (!newExpense.amount) return;
+    
+    try {
+      await api.transactions.add({
+        type: 'expense',
+        amount: parseFloat(newExpense.amount),
+        category: newExpense.category,
+        description: newExpense.description,
+        date: new Date().toISOString().split('T')[0],
+      });
+      
+      setNewExpense({ amount: '', category: 'food', description: '' });
+      await loadTransactions();
+    } catch (error) {
+      console.error('Failed to add expense:', error);
+    }
+  };
+
+  const addIncome = async () => {
+    if (!newIncome.amount) return;
+    
+    try {
+      await api.transactions.add({
+        type: 'income',
+        amount: parseFloat(newIncome.amount),
+        description: newIncome.description,
+        date: new Date().toISOString().split('T')[0],
+      });
+      
+      setNewIncome({ amount: '', description: '' });
+      await loadTransactions();
+    } catch (error) {
+      console.error('Failed to add income:', error);
+    }
+  };
+
+  const deleteExpense = async (id: number) => {
+    try {
+      await api.transactions.delete(id, 'expense');
+      await loadTransactions();
+    } catch (error) {
+      console.error('Failed to delete expense:', error);
+    }
+  };
+
+  const deleteIncome = async (id: number) => {
+    try {
+      await api.transactions.delete(id, 'income');
+      await loadTransactions();
+    } catch (error) {
+      console.error('Failed to delete income:', error);
+    }
+  };
+
+  const changeMonth = (offset: number) => {
+    setSelectedDate(prev => {
+      let newMonth = prev.month + offset;
+      let newYear = prev.year;
+      
+      if (newMonth > 12) {
+        newMonth = 1;
+        newYear++;
+      } else if (newMonth < 1) {
+        newMonth = 12;
+        newYear--;
+      }
+      
+      return { year: newYear, month: newMonth };
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Icon name="Loader2" size={48} className="animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   const currentDate = new Date();
-  const daysInMonth = new Date(2026, 0, 0).getDate();
-  const daysRemaining = daysInMonth - currentDate.getDate();
+  const daysInMonth = new Date(selectedDate.year, selectedDate.month, 0).getDate();
+  const isCurrentMonth = selectedDate.year === currentDate.getFullYear() && selectedDate.month === currentDate.getMonth() + 1;
+  const daysRemaining = isCurrentMonth ? daysInMonth - currentDate.getDate() : 0;
 
-  const monthlyIncome = incomes
-    .filter(i => i.month === currentMonth)
-    .reduce((sum, i) => sum + i.amount, 0);
-
-  const totalFixedExpenses = fixedExpenses.reduce((sum, f) => sum + f.amount, 0);
-
-  const monthlyExpenses = expenses
-    .filter(e => e.date.startsWith(currentMonth))
-    .reduce((sum, e) => sum + e.amount, 0);
-
-  const dailyAverage = monthlyExpenses / (31 - daysRemaining);
-  const projectedExpenses = monthlyExpenses + (dailyAverage * daysRemaining) + totalFixedExpenses;
+  const monthlyIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
+  const monthlyExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const dailyAverage = isCurrentMonth && currentDate.getDate() > 0 ? monthlyExpenses / currentDate.getDate() : 0;
+  const projectedExpenses = monthlyExpenses + (dailyAverage * daysRemaining);
   const projectedBalance = monthlyIncome - projectedExpenses;
 
   const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
@@ -99,224 +182,127 @@ const Index = () => {
       .filter(e => e.category === cat.value)
       .reduce((sum, e) => sum + e.amount, 0),
     color: cat.color,
-  })).filter(item => item.value > 0);
+  })).filter(cat => cat.value > 0);
 
-  const monthlyData = [
-    { name: 'Январь', income: monthlyIncome, expenses: projectedExpenses },
-  ];
-
-  const addExpense = () => {
-    if (newExpense.amount && newExpense.description) {
-      setExpenses([
-        ...expenses,
-        {
-          id: Date.now().toString(),
-          date: new Date().toISOString().split('T')[0],
-          amount: parseFloat(newExpense.amount),
-          category: newExpense.category,
-          description: newExpense.description,
-        },
-      ]);
-      setNewExpense({ amount: '', category: 'food', description: '' });
-    }
-  };
-
-  const deleteExpense = (id: string) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-  };
-
-  const addIncome = () => {
-    if (newIncome.amount && newIncome.source) {
-      setIncomes([
-        ...incomes,
-        {
-          id: Date.now().toString(),
-          month: currentMonth,
-          amount: parseFloat(newIncome.amount),
-          source: newIncome.source,
-        },
-      ]);
-      setNewIncome({ amount: '', source: '' });
-    }
-  };
-
-  const deleteIncome = (id: string) => {
-    setIncomes(incomes.filter(i => i.id !== id));
-  };
-
-  const addFixedExpense = () => {
-    if (newFixed.name && newFixed.amount) {
-      setFixedExpenses([
-        ...fixedExpenses,
-        {
-          id: Date.now().toString(),
-          name: newFixed.name,
-          amount: parseFloat(newFixed.amount),
-          category: newFixed.category,
-        },
-      ]);
-      setNewFixed({ name: '', amount: '', category: 'utilities' });
-    }
-  };
-
-  const deleteFixedExpense = (id: string) => {
-    setFixedExpenses(fixedExpenses.filter(f => f.id !== id));
-  };
-
-  const addBudget = () => {
-    if (newBudget.name && newBudget.amount) {
-      setBudgets([
-        ...budgets,
-        {
-          id: Date.now().toString(),
-          name: newBudget.name,
-          plannedAmount: parseFloat(newBudget.amount),
-          category: newBudget.category,
-        },
-      ]);
-      setNewBudget({ name: '', amount: '', category: 'food' });
-    }
-  };
-
-  const deleteBudget = (id: string) => {
-    setBudgets(budgets.filter(b => b.id !== id));
-  };
-
-  const updateBudget = () => {
-    if (editingBudget && newBudget.name && newBudget.amount) {
-      setBudgets(
-        budgets.map(b =>
-          b.id === editingBudget.id
-            ? { ...b, name: newBudget.name, plannedAmount: parseFloat(newBudget.amount), category: newBudget.category }
-            : b
-        )
-      );
-      setEditingBudget(null);
-      setNewBudget({ name: '', amount: '', category: 'food' });
-    }
-  };
-
-  const startEditBudget = (budget: Budget) => {
-    setEditingBudget(budget);
-    setNewBudget({ name: budget.name, amount: budget.plannedAmount.toString(), category: budget.category });
-  };
-
-  const cancelEditBudget = () => {
-    setEditingBudget(null);
-    setNewBudget({ name: '', amount: '', category: 'food' });
-  };
-
-  const getBudgetProgress = (budget: Budget) => {
-    const spent = expenses
-      .filter(e => e.category === budget.category && e.date.startsWith(currentMonth))
-      .reduce((sum, e) => sum + e.amount, 0);
-    return { spent, remaining: budget.plannedAmount - spent, percentage: (spent / budget.plannedAmount) * 100 };
-  };
+  const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const currentMonthName = monthNames[selectedDate.month - 1];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-white sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Icon name="Wallet" size={28} className="text-primary" />
-              <h1 className="text-2xl font-bold">Мои Финансы</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="outline" className="text-base px-4 py-2">
-                Январь 2026
-              </Badge>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+      <div className="container mx-auto p-4 max-w-7xl">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
+              Финансовый трекер
+            </h1>
+            <p className="text-muted-foreground mt-1">Привет, {user.name}! 👋</p>
           </div>
+          <Button variant="outline" onClick={() => api.auth.logout()}>
+            <Icon name="LogOut" size={16} className="mr-2" />
+            Выйти
+          </Button>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <Button variant="outline" size="icon" onClick={() => changeMonth(-1)}>
+            <Icon name="ChevronLeft" size={20} />
+          </Button>
+          <h2 className="text-2xl font-semibold min-w-[200px] text-center">
+            {currentMonthName} {selectedDate.year}
+          </h2>
+          <Button variant="outline" size="icon" onClick={() => changeMonth(1)}>
+            <Icon name="ChevronRight" size={20} />
+          </Button>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-2">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <Icon name="Home" size={16} />
-              <span className="hidden sm:inline">Главная</span>
+          <TabsList className="grid w-full grid-cols-3 h-12">
+            <TabsTrigger value="overview" className="text-base">
+              <Icon name="LayoutDashboard" size={18} className="mr-2" />
+              Обзор
             </TabsTrigger>
-            <TabsTrigger value="expenses" className="flex items-center gap-2">
-              <Icon name="TrendingDown" size={16} />
-              <span className="hidden sm:inline">Расходы</span>
+            <TabsTrigger value="expenses" className="text-base">
+              <Icon name="TrendingDown" size={18} className="mr-2" />
+              Расходы
             </TabsTrigger>
-            <TabsTrigger value="income" className="flex items-center gap-2">
-              <Icon name="TrendingUp" size={16} />
-              <span className="hidden sm:inline">Доходы</span>
-            </TabsTrigger>
-            <TabsTrigger value="fixed" className="flex items-center gap-2">
-              <Icon name="Calendar" size={16} />
-              <span className="hidden sm:inline">Фиксированные</span>
-            </TabsTrigger>
-            <TabsTrigger value="planning" className="flex items-center gap-2">
-              <Icon name="Clipboard" size={16} />
-              <span className="hidden sm:inline">Планирование</span>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <Icon name="PieChart" size={16} />
-              <span className="hidden sm:inline">Аналитика</span>
-            </TabsTrigger>
-            <TabsTrigger value="forecast" className="flex items-center gap-2">
-              <Icon name="Target" size={16} />
-              <span className="hidden sm:inline">Прогноз</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Icon name="Settings" size={16} />
-              <span className="hidden sm:inline">Настройки</span>
+            <TabsTrigger value="income" className="text-base">
+              <Icon name="TrendingUp" size={18} className="mr-2" />
+              Доходы
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="border-l-4 border-l-green-500">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Доход за месяц
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="TrendingUp" size={24} />
+                    Доходы за месяц
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600">
-                    {monthlyIncome.toLocaleString('ru-RU')} ₽
-                  </div>
+                  <p className="text-3xl font-bold">{monthlyIncome.toLocaleString('ru-RU')} ₽</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-orange-500">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Расходы (текущие)
+              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="TrendingDown" size={24} />
+                    Расходы за месяц
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {monthlyExpenses.toLocaleString('ru-RU')} ₽
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    + {totalFixedExpenses.toLocaleString('ru-RU')} ₽ фиксированные
-                  </p>
+                  <p className="text-3xl font-bold">{monthlyExpenses.toLocaleString('ru-RU')} ₽</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-blue-500">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="Wallet" size={24} />
                     Остаток
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-3xl font-bold ${monthlyIncome - monthlyExpenses - totalFixedExpenses >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                    {(monthlyIncome - monthlyExpenses - totalFixedExpenses).toLocaleString('ru-RU')} ₽
-                  </div>
+                  <p className="text-3xl font-bold">{(monthlyIncome - monthlyExpenses).toLocaleString('ru-RU')} ₽</p>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {expensesByCategory.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Быстрое добавление расхода</CardTitle>
+                  <CardTitle>Расходы по категориям</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={expensesByCategory}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value }) => `${name}: ${value.toLocaleString('ru-RU')} ₽`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {expensesByCategory.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => `${value.toLocaleString('ru-RU')} ₽`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Добавить расход</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -437,10 +423,10 @@ const Index = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Доходы</CardTitle>
-                <CardDescription>Общий доход за месяц: {monthlyIncome.toLocaleString('ru-RU')} ₽</CardDescription>
+                <CardDescription>Общий доход: {monthlyIncome.toLocaleString('ru-RU')} ₽</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Сумма</Label>
                     <Input
@@ -454,8 +440,8 @@ const Index = () => {
                     <Label>Источник</Label>
                     <Input
                       placeholder="Откуда доход?"
-                      value={newIncome.source}
-                      onChange={e => setNewIncome({ ...newIncome, source: e.target.value })}
+                      value={newIncome.description}
+                      onChange={e => setNewIncome({ ...newIncome, description: e.target.value })}
                     />
                   </div>
                 </div>
@@ -463,18 +449,25 @@ const Index = () => {
                   <Icon name="Plus" size={16} className="mr-2" />
                   Добавить доход
                 </Button>
+              </CardContent>
+            </Card>
 
-                <div className="space-y-2 pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Все доходы</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
                   {incomes.map(income => (
                     <div key={income.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
                       <div className="flex-1">
-                        <p className="font-medium">{income.source}</p>
+                        <p className="font-medium">{income.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(income.month + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                          {new Date(income.date).toLocaleDateString('ru-RU')}
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
-                        <p className="font-bold text-green-600 text-lg">+{income.amount.toLocaleString('ru-RU')} ₽</p>
+                        <p className="font-bold text-green-600 text-lg">+{income.amount} ₽</p>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -492,389 +485,8 @@ const Index = () => {
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="fixed" className="space-y-6 animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Фиксированные расходы</CardTitle>
-                <CardDescription>Итого: {totalFixedExpenses.toLocaleString('ru-RU')} ₽/месяц</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Название</Label>
-                    <Input
-                      placeholder="Аренда, интернет..."
-                      value={newFixed.name}
-                      onChange={e => setNewFixed({ ...newFixed, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Сумма</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={newFixed.amount}
-                      onChange={e => setNewFixed({ ...newFixed, amount: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Категория</Label>
-                    <Select
-                      value={newFixed.category}
-                      onValueChange={value => setNewFixed({ ...newFixed, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EXPENSE_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button onClick={addFixedExpense} className="w-full">
-                  <Icon name="Plus" size={16} className="mr-2" />
-                  Добавить фиксированный расход
-                </Button>
-
-                <div className="space-y-2 pt-4">
-                  {fixedExpenses.map(fixed => {
-                    const category = EXPENSE_CATEGORIES.find(c => c.value === fixed.category);
-                    return (
-                      <div key={fixed.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
-                        <div className="flex-1">
-                          <p className="font-medium">{fixed.name}</p>
-                          <p className="text-sm text-muted-foreground">{category?.label}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <p className="font-bold text-orange-600 text-lg">{fixed.amount.toLocaleString('ru-RU')} ₽</p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteFixedExpense(fixed.id)}
-                          >
-                            <Icon name="Trash2" size={16} className="text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {fixedExpenses.length === 0 && (
-                    <p className="text-center text-muted-foreground py-12">Пока нет фиксированных расходов</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="planning" className="space-y-6 animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Планирование бюджета</CardTitle>
-                <CardDescription>Создайте планы трат по категориям и отслеживайте прогресс</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Название плана</Label>
-                    <Input
-                      placeholder="Бюджет на продукты..."
-                      value={newBudget.name}
-                      onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Запланированная сумма</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={newBudget.amount}
-                      onChange={e => setNewBudget({ ...newBudget, amount: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Категория</Label>
-                    <Select
-                      value={newBudget.category}
-                      onValueChange={value => setNewBudget({ ...newBudget, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EXPENSE_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {editingBudget ? (
-                    <>
-                      <Button onClick={updateBudget} className="flex-1">
-                        <Icon name="Save" size={16} className="mr-2" />
-                        Сохранить изменения
-                      </Button>
-                      <Button onClick={cancelEditBudget} variant="outline" className="flex-1">
-                        <Icon name="X" size={16} className="mr-2" />
-                        Отменить
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={addBudget} className="w-full">
-                      <Icon name="Plus" size={16} className="mr-2" />
-                      Добавить план
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-4 pt-4">
-                  {budgets.map(budget => {
-                    const category = EXPENSE_CATEGORIES.find(c => c.value === budget.category);
-                    const progress = getBudgetProgress(budget);
-                    const isOverBudget = progress.spent > budget.plannedAmount;
-                    
-                    return (
-                      <Card key={budget.id} className={`${isOverBudget ? 'border-red-500' : 'border-green-500'} border-2`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <CardTitle className="text-lg">{budget.name}</CardTitle>
-                              <CardDescription>{category?.label}</CardDescription>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => startEditBudget(budget)}
-                              >
-                                <Icon name="Pencil" size={16} className="text-blue-600" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteBudget(budget.id)}
-                              >
-                                <Icon name="Trash2" size={16} className="text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div className="p-3 bg-blue-50 rounded-lg">
-                              <p className="text-xs text-muted-foreground mb-1">План</p>
-                              <p className="font-bold text-blue-600">{budget.plannedAmount.toLocaleString('ru-RU')} ₽</p>
-                            </div>
-                            <div className={`p-3 rounded-lg ${isOverBudget ? 'bg-red-50' : 'bg-orange-50'}`}>
-                              <p className="text-xs text-muted-foreground mb-1">Потрачено</p>
-                              <p className={`font-bold ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
-                                {progress.spent.toLocaleString('ru-RU')} ₽
-                              </p>
-                            </div>
-                            <div className={`p-3 rounded-lg ${isOverBudget ? 'bg-red-50' : 'bg-green-50'}`}>
-                              <p className="text-xs text-muted-foreground mb-1">Остаток</p>
-                              <p className={`font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
-                                {progress.remaining.toLocaleString('ru-RU')} ₽
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium">Использовано</span>
-                              <span className={`text-sm font-bold ${isOverBudget ? 'text-red-600' : 'text-blue-600'}`}>
-                                {progress.percentage.toFixed(1)}%
-                              </span>
-                            </div>
-                            <Progress 
-                              value={Math.min(progress.percentage, 100)} 
-                              className={`h-3 ${isOverBudget ? '[&>div]:bg-red-500' : ''}`}
-                            />
-                            {isOverBudget && (
-                              <p className="text-xs text-red-600 mt-2 font-medium">
-                                ⚠️ Превышение бюджета на {(progress.spent - budget.plannedAmount).toLocaleString('ru-RU')} ₽
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="pt-2 border-t">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">Расходы в этой категории:</p>
-                            <div className="space-y-1 max-h-32 overflow-y-auto">
-                              {expenses
-                                .filter(e => e.category === budget.category && e.date.startsWith(currentMonth))
-                                .map(expense => (
-                                  <div key={expense.id} className="flex justify-between text-xs p-2 bg-secondary/30 rounded">
-                                    <span>{expense.description}</span>
-                                    <span className="font-medium text-orange-600">-{expense.amount} ₽</span>
-                                  </div>
-                                ))}
-                              {expenses.filter(e => e.category === budget.category && e.date.startsWith(currentMonth)).length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-2">Пока нет расходов</p>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  {budgets.length === 0 && (
-                    <p className="text-center text-muted-foreground py-12">Создайте первый план бюджета</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Расходы по категориям</CardTitle>
-                  <CardDescription>За текущий месяц</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {expensesByCategory.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={expensesByCategory}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={entry => `${entry.name}: ${entry.value.toLocaleString('ru-RU')} ₽`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => `${value.toLocaleString('ru-RU')} ₽`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                      Нет данных для отображения
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Доходы vs Расходы</CardTitle>
-                  <CardDescription>Сравнение за месяц</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => `${value.toLocaleString('ru-RU')} ₽`} />
-                      <Legend />
-                      <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Доходы" />
-                      <Line type="monotone" dataKey="expenses" stroke="#F97316" strokeWidth={2} name="Расходы" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="forecast" className="space-y-6 animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Прогноз на конец месяца</CardTitle>
-                <CardDescription>Основан на текущих тратах и фиксированных расходах</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-muted-foreground mb-1">Средние траты в день</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {dailyAverage.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
-                      </p>
-                    </div>
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm text-muted-foreground mb-1">Прогноз расходов</p>
-                      <p className="text-2xl font-bold text-orange-600">
-                        {projectedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Текущие {monthlyExpenses.toLocaleString('ru-RU')} ₽ + прогноз {(dailyAverage * daysRemaining).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽ + фикс. {totalFixedExpenses.toLocaleString('ru-RU')} ₽
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                      <p className="text-sm text-muted-foreground mb-1">Доходы за месяц</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {monthlyIncome.toLocaleString('ru-RU')} ₽
-                      </p>
-                    </div>
-                    <div className={`p-4 rounded-lg border ${projectedBalance >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                      <p className="text-sm text-muted-foreground mb-1">Прогноз остатка</p>
-                      <p className={`text-2xl font-bold ${projectedBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {projectedBalance.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {projectedBalance >= 0 ? 'Хороший запас на конец месяца' : 'Возможен дефицит средств'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Израсходовано от дохода</span>
-                    <span className="text-sm font-bold">
-                      {((monthlyExpenses / monthlyIncome) * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress value={(monthlyExpenses / monthlyIncome) * 100} className="h-3" />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Осталось дней в месяце: {daysRemaining}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6 animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Настройки</CardTitle>
-                <CardDescription>Управление приложением</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-secondary/50 rounded-lg">
-                  <p className="font-medium mb-2">О приложении</p>
-                  <p className="text-sm text-muted-foreground">
-                    Финансовое приложение для учёта личных расходов и доходов. Версия 1.0
-                  </p>
-                </div>
-                <div className="p-4 bg-secondary/50 rounded-lg">
-                  <p className="font-medium mb-2">Валюта</p>
-                  <p className="text-sm text-muted-foreground">Российский рубль (₽)</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
-      </main>
+      </div>
     </div>
   );
 };

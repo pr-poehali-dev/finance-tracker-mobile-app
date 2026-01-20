@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Test get transactions without auth",
+      "method": "GET",
+      "path": "/?type=income",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test add transaction without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "type": "income",
+        "amount": 5000,
+        "description": "Test"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
