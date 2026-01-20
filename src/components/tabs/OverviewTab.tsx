@@ -19,11 +19,13 @@ const EXPENSE_CATEGORIES = [
 interface OverviewTabProps {
   monthlyIncome: number;
   monthlyExpenses: number;
+  regularExpenses: number;
+  fixedExpenses: number;
   expenses: Transaction[];
   incomes: Transaction[];
 }
 
-const OverviewTab = ({ monthlyIncome, monthlyExpenses, expenses, incomes }: OverviewTabProps) => {
+const OverviewTab = ({ monthlyIncome, monthlyExpenses, regularExpenses, fixedExpenses, expenses, incomes }: OverviewTabProps) => {
   const balance = monthlyIncome - monthlyExpenses;
 
   return (
@@ -50,6 +52,12 @@ const OverviewTab = ({ monthlyIncome, monthlyExpenses, expenses, incomes }: Over
           </CardHeader>
           <CardContent>
             <p className="text-2xl sm:text-3xl font-bold">{monthlyExpenses.toLocaleString('ru-RU')} ₽</p>
+            {fixedExpenses > 0 && (
+              <div className="mt-2 pt-2 border-t border-orange-400/30">
+                <p className="text-xs sm:text-sm opacity-90">Обычные: {regularExpenses.toLocaleString('ru-RU')} ₽</p>
+                <p className="text-xs sm:text-sm opacity-90">Фиксированные: {fixedExpenses.toLocaleString('ru-RU')} ₽</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import LoginPage from '@/components/LoginPage';
-import { api, User, Transaction } from '@/lib/api';
+import { api, User, Transaction, FixedExpense } from '@/lib/api';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import ExpensesTab from '@/components/tabs/ExpensesTab';
 import IncomeTab from '@/components/tabs/IncomeTab';
@@ -37,6 +37,7 @@ const Index = () => {
   
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [incomes, setIncomes] = useState<Transaction[]>([]);
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   
   const [newExpense, setNewExpense] = useState({ amount: '', category: 'food', description: '' });
   const [newIncome, setNewIncome] = useState({ amount: '', description: '' });
@@ -61,6 +62,7 @@ const Index = () => {
   useEffect(() => {
     if (user) {
       loadTransactions();
+      loadFixedExpenses();
     }
   }, [user, selectedDate]);
 
@@ -74,6 +76,15 @@ const Index = () => {
       setIncomes(incomesData);
     } catch (error) {
       console.error('Failed to load transactions:', error);
+    }
+  };
+
+  const loadFixedExpenses = async () => {
+    try {
+      const data = await api.fixedExpenses.getAll();
+      setFixedExpenses(data.filter(f => f.isActive));
+    } catch (error) {
+      console.error('Failed to load fixed expenses:', error);
     }
   };
 
@@ -167,7 +178,9 @@ const Index = () => {
   const daysRemaining = isCurrentMonth ? daysInMonth - currentDate.getDate() : 0;
 
   const monthlyIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
-  const monthlyExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const regularExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalFixedExpenses = fixedExpenses.reduce((sum, f) => sum + f.amount, 0);
+  const monthlyExpenses = regularExpenses + totalFixedExpenses;
   const dailyAverage = isCurrentMonth && currentDate.getDate() > 0 ? monthlyExpenses / currentDate.getDate() : 0;
   const projectedExpenses = monthlyExpenses + (dailyAverage * daysRemaining);
   const projectedBalance = monthlyIncome - projectedExpenses;
@@ -249,6 +262,8 @@ const Index = () => {
             <OverviewTab
               monthlyIncome={monthlyIncome}
               monthlyExpenses={monthlyExpenses}
+              regularExpenses={regularExpenses}
+              fixedExpenses={totalFixedExpenses}
               expenses={expenses}
               incomes={incomes}
             />
