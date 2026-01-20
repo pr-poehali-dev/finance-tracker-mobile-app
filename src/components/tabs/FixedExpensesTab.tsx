@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { api, FixedExpense } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты' },
@@ -20,6 +21,8 @@ const EXPENSE_CATEGORIES = [
 const FixedExpensesTab = () => {
   const [items, setItems] = useState<FixedExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
   const [newItem, setNewItem] = useState({
     title: '',
     amount: '',
@@ -81,6 +84,35 @@ const FixedExpensesTab = () => {
   const totalMonthly = items
     .filter(item => item.isActive)
     .reduce((sum, item) => sum + item.amount, 0);
+
+  const processAutoExpenses = async () => {
+    setProcessing(true);
+    try {
+      const now = new Date();
+      const result = await api.autoExpenses.process(now.getFullYear(), now.getMonth() + 1);
+      
+      if (result.total > 0) {
+        toast({
+          title: 'Расходы добавлены',
+          description: `Создано ${result.total} автоматических расходов на сумму ${result.created.reduce((sum, e) => sum + e.amount, 0).toLocaleString('ru-RU')} ₽`,
+        });
+      } else {
+        toast({
+          title: 'Нет новых расходов',
+          description: 'Все фиксированные расходы уже были созданы для этого месяца',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to process auto expenses:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать автоматические расходы',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -157,7 +189,18 @@ const FixedExpensesTab = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Список регулярных платежей</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Список регулярных платежей</CardTitle>
+            <Button 
+              onClick={processAutoExpenses} 
+              disabled={processing || items.filter(i => i.isActive).length === 0}
+              variant="outline"
+              size="sm"
+            >
+              <Icon name={processing ? 'Loader2' : 'Zap'} size={16} className={`mr-2 ${processing ? 'animate-spin' : ''}`} />
+              {processing ? 'Обработка...' : 'Создать расходы за месяц'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">

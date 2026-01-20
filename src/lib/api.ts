@@ -1,6 +1,7 @@
 const AUTH_URL = 'https://functions.poehali.dev/8b7a1651-e473-4bba-865c-e549f7445219';
 const TRANSACTIONS_URL = 'https://functions.poehali.dev/d2528ab0-328e-4eac-a8bc-8457fda3cee4';
 const FIXED_PLANNING_URL = 'https://functions.poehali.dev/d5129445-08d9-4bd9-b376-c361d759be21';
+const AUTO_EXPENSES_URL = 'https://functions.poehali.dev/6f48e8e7-ba72-4f10-b4ed-d9cf96946618';
 
 export interface User {
   id: number;
@@ -35,6 +36,26 @@ export interface PlanningGoal {
   category: string;
   isCompleted: boolean;
   createdAt: string;
+}
+
+export interface AutoExpenseResult {
+  created: Array<{
+    id: number;
+    amount: number;
+    category: string;
+    description: string;
+    date: string;
+    fixedExpenseId: number;
+    fixedExpenseTitle: string;
+  }>;
+  skipped: Array<{
+    fixedExpenseId: number;
+    title: string;
+    reason: string;
+  }>;
+  total: number;
+  year: number;
+  month: number;
 }
 
 export const api = {
@@ -324,6 +345,27 @@ export const api = {
       });
       
       if (!response.ok) throw new Error('Failed to delete planning goal');
+    },
+  },
+  
+  autoExpenses: {
+    process: async (year?: number, month?: number): Promise<AutoExpenseResult> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      
+      const response = await fetch(AUTO_EXPENSES_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ year, month }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to process auto expenses');
+      
+      const data = await response.json();
+      return data;
     },
   },
 };
