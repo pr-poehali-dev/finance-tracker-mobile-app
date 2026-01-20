@@ -33,14 +33,14 @@ const ExpensesTab = ({
   deleteExpense,
 }: ExpensesTabProps) => {
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="grid gap-3 sm:gap-6 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Добавить расход</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Добавить расход</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label>Сумма</Label>
                 <Input

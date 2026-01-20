@@ -180,63 +180,65 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-      <div className="container mx-auto p-4 max-w-7xl">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto p-3 sm:p-4 max-w-7xl">
+        <div className="flex items-center justify-between mb-4 sm:mb-8">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
               Финансовый трекер
             </h1>
-            <p className="text-muted-foreground mt-1">Привет, {user.name}! 👋</p>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Привет, {user.name}! 👋</p>
           </div>
-          <Button variant="outline" onClick={() => api.auth.logout()}>
-            <Icon name="LogOut" size={16} className="mr-2" />
-            Выйти
+          <Button variant="outline" size="sm" onClick={() => api.auth.logout()}>
+            <Icon name="LogOut" size={16} className="sm:mr-2" />
+            <span className="hidden sm:inline">Выйти</span>
           </Button>
         </div>
 
-        <div className="flex items-center justify-center gap-4 mb-6">
-          <Button variant="outline" size="icon" onClick={() => changeMonth(-1)}>
-            <Icon name="ChevronLeft" size={20} />
+        <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <Button variant="outline" size="sm" onClick={() => changeMonth(-1)}>
+            <Icon name="ChevronLeft" size={18} />
           </Button>
-          <h2 className="text-2xl font-semibold min-w-[200px] text-center">
+          <h2 className="text-lg sm:text-2xl font-semibold min-w-[160px] sm:min-w-[200px] text-center">
             {currentMonthName} {selectedDate.year}
           </h2>
-          <Button variant="outline" size="icon" onClick={() => changeMonth(1)}>
-            <Icon name="ChevronRight" size={20} />
+          <Button variant="outline" size="sm" onClick={() => changeMonth(1)}>
+            <Icon name="ChevronRight" size={18} />
           </Button>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 h-12">
-            <TabsTrigger value="overview" className="text-base">
-              <Icon name="LayoutDashboard" size={18} className="mr-2" />
-              Обзор
-            </TabsTrigger>
-            <TabsTrigger value="expenses" className="text-base">
-              <Icon name="TrendingDown" size={18} className="mr-2" />
-              Расходы
-            </TabsTrigger>
-            <TabsTrigger value="income" className="text-base">
-              <Icon name="TrendingUp" size={18} className="mr-2" />
-              Доходы
-            </TabsTrigger>
-            <TabsTrigger value="fixed" className="text-base">
-              <Icon name="Calendar" size={18} className="mr-2" />
-              Фиксированные
-            </TabsTrigger>
-            <TabsTrigger value="forecast" className="text-base">
-              <Icon name="LineChart" size={18} className="mr-2" />
-              Прогноз
-            </TabsTrigger>
-            <TabsTrigger value="planning" className="text-base">
-              <Icon name="Target" size={18} className="mr-2" />
-              Планирование
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="text-base">
-              <Icon name="Settings" size={18} className="mr-2" />
-              Настройки
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <div className="-mx-3 sm:mx-0">
+            <TabsList className="w-full inline-flex sm:grid sm:grid-cols-7 h-auto sm:h-12 overflow-x-auto px-3 sm:px-0 scrollbar-hide">
+              <TabsTrigger value="overview" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Обзор</span>
+              </TabsTrigger>
+              <TabsTrigger value="expenses" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="TrendingDown" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Расходы</span>
+              </TabsTrigger>
+              <TabsTrigger value="income" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="TrendingUp" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Доходы</span>
+              </TabsTrigger>
+              <TabsTrigger value="fixed" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="Calendar" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Фиксир.</span>
+              </TabsTrigger>
+              <TabsTrigger value="forecast" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="LineChart" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Прогноз</span>
+              </TabsTrigger>
+              <TabsTrigger value="planning" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="Target" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Планир.</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="Settings" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Настр.</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview">
             <OverviewTab

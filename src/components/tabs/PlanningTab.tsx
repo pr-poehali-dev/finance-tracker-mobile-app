@@ -105,14 +105,14 @@ const PlanningTab = () => {
   const completedGoals = items.filter(item => item.isCompleted);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
         <CardHeader>
-          <CardTitle>Планирование покупок</CardTitle>
-          <CardDescription>Ставьте финансовые цели и отслеживайте прогресс</CardDescription>
+          <CardTitle className="text-base sm:text-lg">Планирование покупок</CardTitle>
+          <CardDescription className="text-sm">Ставьте финансовые цели и отслеживайте прогресс</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <Label>Название цели</Label>
               <Input

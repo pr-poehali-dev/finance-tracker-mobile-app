@@ -123,16 +123,16 @@ const FixedExpensesTab = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <Card className="bg-gradient-to-br from-purple-50 to-blue-50">
         <CardHeader>
-          <CardTitle>Фиксированные расходы</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base sm:text-lg">Фиксированные расходы</CardTitle>
+          <CardDescription className="text-sm">
             Регулярные платежи каждый месяц: {totalMonthly.toLocaleString('ru-RU')} ₽
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <Label>Название</Label>
               <Input
@@ -189,16 +189,17 @@ const FixedExpensesTab = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Список регулярных платежей</CardTitle>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="text-base sm:text-lg">Список регулярных платежей</CardTitle>
             <Button 
               onClick={processAutoExpenses} 
               disabled={processing || items.filter(i => i.isActive).length === 0}
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
             >
               <Icon name={processing ? 'Loader2' : 'Zap'} size={16} className={`mr-2 ${processing ? 'animate-spin' : ''}`} />
-              {processing ? 'Обработка...' : 'Создать расходы за месяц'}
+              <span className="text-xs sm:text-sm">{processing ? 'Обработка...' : 'Создать расходы за месяц'}</span>
             </Button>
           </div>
         </CardHeader>
@@ -209,48 +210,50 @@ const FixedExpensesTab = () => {
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between p-4 rounded-lg transition-all ${
+                  className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg transition-all gap-2 ${
                     item.isActive
                       ? 'bg-secondary/50 hover:bg-secondary'
                       : 'bg-secondary/20 opacity-60'
                   }`}
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 w-full sm:w-auto">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{item.title}</p>
+                      <p className="font-medium text-sm sm:text-base">{item.title}</p>
                       {!item.isActive && (
                         <Badge variant="outline" className="text-xs">
                           Неактивен
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       {category?.label} • Списание {item.dayOfMonth} числа
                     </p>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <p className="font-bold text-purple-600 text-lg">
+                  <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <p className="font-bold text-purple-600 text-base sm:text-lg">
                       {item.amount.toLocaleString('ru-RU')} ₽
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleActive(item.id, item.isActive)}
-                      title={item.isActive ? 'Отключить' : 'Включить'}
-                    >
-                      <Icon
-                        name={item.isActive ? 'ToggleRight' : 'ToggleLeft'}
-                        size={20}
-                        className={item.isActive ? 'text-green-600' : 'text-gray-400'}
-                      />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteItem(item.id)}
-                    >
-                      <Icon name="Trash2" size={16} className="text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleActive(item.id, item.isActive)}
+                        title={item.isActive ? 'Отключить' : 'Включить'}
+                      >
+                        <Icon
+                          name={item.isActive ? 'ToggleRight' : 'ToggleLeft'}
+                          size={20}
+                          className={item.isActive ? 'text-green-600' : 'text-gray-400'}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteItem(item.id)}
+                      >
+                        <Icon name="Trash2" size={16} className="text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
