@@ -182,10 +182,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
             <div className="space-y-4">
               {activeGoals.map(item => {
                 const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
-                const actualSpent = expenses
-                  .filter(e => e.category === item.category)
-                  .reduce((sum, e) => sum + e.amount, 0);
-                const totalProgress = item.savedAmount + actualSpent;
+                const totalProgress = item.savedAmount;
                 const progress = (totalProgress / item.targetAmount) * 100;
                 const remaining = item.targetAmount - totalProgress;
 
@@ -207,9 +204,6 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                         </p>
                         <p className="text-sm text-muted-foreground">
                           из {item.targetAmount.toLocaleString('ru-RU')} ₽
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">
-                          Потрачено: {actualSpent.toLocaleString('ru-RU')} ₽
                         </p>
                       </div>
                     </div>
