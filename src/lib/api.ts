@@ -139,7 +139,11 @@ export const api = {
   transactions: {
     getAll: async (type: 'income' | 'expense', year?: number, month?: number): Promise<Transaction[]> => {
       const token = localStorage.getItem('auth_token');
-      if (!token) throw new Error('Not authenticated');
+      if (!token) {
+        console.error('No auth token found, redirecting to login');
+        window.location.reload();
+        throw new Error('Not authenticated');
+      }
       
       let url = `${TRANSACTIONS_URL}?type=${type}`;
       if (year && month) {
@@ -151,6 +155,12 @@ export const api = {
           'Authorization': `Bearer ${token}`,
         },
       });
+      
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        window.location.reload();
+        throw new Error('Unauthorized');
+      }
       
       if (!response.ok) throw new Error('Failed to fetch transactions');
       
