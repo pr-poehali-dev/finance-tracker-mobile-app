@@ -204,7 +204,7 @@ const Index = () => {
         <div className="flex items-center justify-between mb-4 sm:mb-8">
           <div>
             <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-              Финансовый трекер
+              GoGoMoney
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-1">Привет, {user.name}! 👋</p>
           </div>
