@@ -7,24 +7,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { api, PlanningGoal } from '@/lib/api';
+import { api, PlanningGoal, Transaction } from '@/lib/api';
 
-const PLANNING_CATEGORIES = [
-  { value: 'vacation', label: 'Отпуск' },
-  { value: 'gadget', label: 'Гаджеты' },
-  { value: 'car', label: 'Автомобиль' },
-  { value: 'home', label: 'Жильё' },
-  { value: 'education', label: 'Образование' },
-  { value: 'other', label: 'Прочее' },
+const EXPENSE_CATEGORIES = [
+  { value: 'food', label: 'Продукты', color: '#0EA5E9' },
+  { value: 'transport', label: 'Транспорт', color: '#F97316' },
+  { value: 'entertainment', label: 'Развлечения', color: '#8B5CF6' },
+  { value: 'health', label: 'Здоровье', color: '#10B981' },
+  { value: 'utilities', label: 'Коммуналка', color: '#F59E0B' },
+  { value: 'children', label: 'Дети', color: '#EC4899' },
+  { value: 'taxes', label: 'Налоги и штрафы', color: '#EF4444' },
+  { value: 'marketplace', label: 'Маркетплейсы', color: '#06B6D4' },
+  { value: 'services', label: 'Услуги', color: '#14B8A6' },
+  { value: 'restaurants', label: 'Кафе и рестораны', color: '#F59E0B' },
+  { value: 'other', label: 'Прочее', color: '#8E9196' },
 ];
 
-const PlanningTab = () => {
+interface PlanningTabProps {
+  expenses: Transaction[];
+}
+
+const PlanningTab = ({ expenses }: PlanningTabProps) => {
   const [items, setItems] = useState<PlanningGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState({
     title: '',
     targetAmount: '',
-    category: 'vacation',
+    category: 'food',
     targetDate: '',
   });
   const [editingSaved, setEditingSaved] = useState<{ [key: number]: string }>({});
@@ -55,7 +64,7 @@ const PlanningTab = () => {
         targetDate: newItem.targetDate || undefined,
       });
 
-      setNewItem({ title: '', targetAmount: '', category: 'vacation', targetDate: '' });
+      setNewItem({ title: '', targetAmount: '', category: 'food', targetDate: '' });
       await loadItems();
     } catch (error) {
       console.error('Failed to add planning goal:', error);
@@ -114,9 +123,9 @@ const PlanningTab = () => {
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <Label>Название цели</Label>
+              <Label>Категория бюджета</Label>
               <Input
-                placeholder="iPhone 15"
+                placeholder="Например: Продукты на месяц"
                 value={newItem.title}
                 onChange={e => setNewItem({ ...newItem, title: e.target.value })}
               />
@@ -140,7 +149,7 @@ const PlanningTab = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PLANNING_CATEGORIES.map(cat => (
+                  {EXPENSE_CATEGORIES.map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
@@ -172,9 +181,13 @@ const PlanningTab = () => {
           <CardContent>
             <div className="space-y-4">
               {activeGoals.map(item => {
-                const category = PLANNING_CATEGORIES.find(c => c.value === item.category);
-                const progress = (item.savedAmount / item.targetAmount) * 100;
-                const remaining = item.targetAmount - item.savedAmount;
+                const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
+                const actualSpent = expenses
+                  .filter(e => e.category === item.category)
+                  .reduce((sum, e) => sum + e.amount, 0);
+                const totalProgress = item.savedAmount + actualSpent;
+                const progress = (totalProgress / item.targetAmount) * 100;
+                const remaining = item.targetAmount - totalProgress;
 
                 return (
                   <div key={item.id} className="p-4 bg-secondary/50 rounded-lg space-y-3">
@@ -190,10 +203,13 @@ const PlanningTab = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-green-600">
-                          {item.savedAmount.toLocaleString('ru-RU')} ₽
+                          {totalProgress.toLocaleString('ru-RU')} ₽
                         </p>
                         <p className="text-sm text-muted-foreground">
                           из {item.targetAmount.toLocaleString('ru-RU')} ₽
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Потрачено: {actualSpent.toLocaleString('ru-RU')} ₽
                         </p>
                       </div>
                     </div>
@@ -261,7 +277,7 @@ const PlanningTab = () => {
           <CardContent>
             <div className="space-y-2">
               {completedGoals.map(item => {
-                const category = PLANNING_CATEGORIES.find(c => c.value === item.category);
+                const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
                 return (
                   <div
                     key={item.id}

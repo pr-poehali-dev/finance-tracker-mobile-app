@@ -298,7 +298,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="planning">
-            <PlanningTab />
+            <PlanningTab expenses={expenses} />
           </TabsContent>
 
           <TabsContent value="settings">
