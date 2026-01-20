@@ -8,6 +8,11 @@ const EXPENSE_CATEGORIES = [
   { value: 'entertainment', label: 'Развлечения', color: '#8B5CF6' },
   { value: 'health', label: 'Здоровье', color: '#10B981' },
   { value: 'utilities', label: 'Коммуналка', color: '#F59E0B' },
+  { value: 'children', label: 'Дети', color: '#EC4899' },
+  { value: 'taxes', label: 'Налоги и штрафы', color: '#EF4444' },
+  { value: 'marketplace', label: 'Маркетплейсы', color: '#06B6D4' },
+  { value: 'services', label: 'Услуги', color: '#14B8A6' },
+  { value: 'restaurants', label: 'Кафе и рестораны', color: '#F59E0B' },
   { value: 'other', label: 'Прочее', color: '#8E9196' },
 ];
 

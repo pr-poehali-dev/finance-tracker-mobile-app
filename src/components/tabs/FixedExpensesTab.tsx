@@ -15,6 +15,11 @@ const EXPENSE_CATEGORIES = [
   { value: 'utilities', label: 'Коммуналка' },
   { value: 'subscription', label: 'Подписки' },
   { value: 'rent', label: 'Аренда' },
+  { value: 'children', label: 'Дети' },
+  { value: 'taxes', label: 'Налоги и штрафы' },
+  { value: 'marketplace', label: 'Маркетплейсы' },
+  { value: 'services', label: 'Услуги' },
+  { value: 'restaurants', label: 'Кафе и рестораны' },
   { value: 'other', label: 'Прочее' },
 ];
 
