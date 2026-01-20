@@ -23,7 +23,11 @@ const EXPENSE_CATEGORIES = [
   { value: 'other', label: 'Прочее' },
 ];
 
-const FixedExpensesTab = () => {
+interface FixedExpensesTabProps {
+  onUpdate?: () => void;
+}
+
+const FixedExpensesTab = ({ onUpdate }: FixedExpensesTabProps) => {
   const [items, setItems] = useState<FixedExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -63,6 +67,7 @@ const FixedExpensesTab = () => {
 
       setNewItem({ title: '', amount: '', category: 'utilities', dayOfMonth: '1' });
       await loadItems();
+      onUpdate?.();
     } catch (error) {
       console.error('Failed to add fixed expense:', error);
     }
@@ -72,6 +77,7 @@ const FixedExpensesTab = () => {
     try {
       await api.fixedExpenses.update(id, !isActive);
       await loadItems();
+      onUpdate?.();
     } catch (error) {
       console.error('Failed to update fixed expense:', error);
     }
@@ -81,6 +87,7 @@ const FixedExpensesTab = () => {
     try {
       await api.fixedExpenses.delete(id);
       await loadItems();
+      onUpdate?.();
     } catch (error) {
       console.error('Failed to delete fixed expense:', error);
     }

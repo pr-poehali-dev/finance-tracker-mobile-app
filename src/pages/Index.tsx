@@ -181,9 +181,11 @@ const Index = () => {
   const regularExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalFixedExpenses = fixedExpenses.reduce((sum, f) => sum + f.amount, 0);
   const monthlyExpenses = regularExpenses + totalFixedExpenses;
-  const dailyAverage = isCurrentMonth && currentDate.getDate() > 0 ? monthlyExpenses / currentDate.getDate() : 0;
-  const projectedExpenses = monthlyExpenses + (dailyAverage * daysRemaining);
+  const dailyAverageRegular = isCurrentMonth && currentDate.getDate() > 0 ? regularExpenses / currentDate.getDate() : 0;
+  const projectedRegularExpenses = regularExpenses + (dailyAverageRegular * daysRemaining);
+  const projectedExpenses = projectedRegularExpenses + totalFixedExpenses;
   const projectedBalance = monthlyIncome - projectedExpenses;
+  const dailyAverage = isCurrentMonth && currentDate.getDate() > 0 ? regularExpenses / currentDate.getDate() : 0;
 
   const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
     name: cat.label,
@@ -292,7 +294,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="fixed">
-            <FixedExpensesTab />
+            <FixedExpensesTab onUpdate={loadFixedExpenses} />
           </TabsContent>
 
           <TabsContent value="forecast">
@@ -301,6 +303,8 @@ const Index = () => {
               expenses={expenses}
               monthlyIncome={monthlyIncome}
               monthlyExpenses={monthlyExpenses}
+              regularExpenses={regularExpenses}
+              fixedExpenses={totalFixedExpenses}
               isCurrentMonth={isCurrentMonth}
               currentDate={currentDate}
               daysInMonth={daysInMonth}

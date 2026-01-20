@@ -23,6 +23,8 @@ interface OtherTabsProps {
   expenses: Transaction[];
   monthlyIncome: number;
   monthlyExpenses: number;
+  regularExpenses: number;
+  fixedExpenses: number;
   isCurrentMonth: boolean;
   currentDate: Date;
   daysInMonth: number;
@@ -35,6 +37,8 @@ interface OtherTabsProps {
 
 export const ForecastTab = ({
   expenses,
+  regularExpenses,
+  fixedExpenses,
   isCurrentMonth,
   currentDate,
   daysInMonth,
@@ -65,6 +69,12 @@ export const ForecastTab = ({
                 <p className="text-2xl font-bold text-purple-600">
                   {projectedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
                 </p>
+                {fixedExpenses > 0 && (
+                  <div className="mt-2 pt-2 border-t border-purple-300">
+                    <p className="text-xs text-purple-700">Обычные: {(projectedExpenses - fixedExpenses).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽</p>
+                    <p className="text-xs text-purple-700">Фиксир.: {fixedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽</p>
+                  </div>
+                )}
               </div>
               <div className="p-4 bg-orange-50 rounded-lg">
                 <p className="text-sm text-muted-foreground">Ожидаемый остаток</p>
@@ -88,6 +98,11 @@ export const ForecastTab = ({
                     При текущем темпе расходов ({dailyAverage.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽/день) 
                     к концу месяца вы потратите около {projectedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
                   </p>
+                  {fixedExpenses > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      (включая {fixedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽ фиксированных расходов)
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
