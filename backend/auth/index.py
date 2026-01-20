@@ -75,20 +75,27 @@ def send_verification_code(email: str) -> dict:
     cur.close()
     conn.close()
     
-    try:
-        send_email(email, code)
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to send email: {str(e)}'}),
-            'isBase64Encoded': False
-        }
+    smtp_host = os.environ.get('SMTP_HOST')
+    dev_mode = not smtp_host
+    
+    if not dev_mode:
+        try:
+            send_email(email, code)
+            message = 'Code sent to email'
+        except Exception as e:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': f'Failed to send email: {str(e)}'}),
+                'isBase64Encoded': False
+            }
+    else:
+        message = f'DEV MODE: Your code is {code}'
     
     return {
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-        'body': json.dumps({'success': True, 'message': 'Code sent to email'}),
+        'body': json.dumps({'success': True, 'message': message, 'dev_code': code if dev_mode else None}),
         'isBase64Encoded': False
     }
 

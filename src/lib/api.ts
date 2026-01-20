@@ -17,7 +17,7 @@ export interface Transaction {
 
 export const api = {
   auth: {
-    sendCode: async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    sendCode: async (email: string): Promise<{ success: boolean; message?: string; error?: string; dev_code?: string }> => {
       try {
         const response = await fetch(AUTH_URL, {
           method: 'POST',
@@ -33,7 +33,7 @@ export const api = {
           return { success: false, error: data.error || 'Failed to send code' };
         }
         
-        return { success: true, message: data.message };
+        return { success: true, message: data.message, dev_code: data.dev_code };
       } catch (error) {
         console.error('Send code failed:', error);
         return { success: false, error: 'Network error' };

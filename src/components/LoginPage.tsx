@@ -29,7 +29,12 @@ export default function LoginPage() {
 
     if (result.success) {
       setStep('code');
-      setMessage('Код отправлен на ваш email');
+      if (result.dev_code) {
+        setMessage(`Режим разработки: ваш код ${result.dev_code}`);
+        setCode(result.dev_code);
+      } else {
+        setMessage('Код отправлен на ваш email');
+      }
     } else {
       setError(result.error || 'Не удалось отправить код');
     }
