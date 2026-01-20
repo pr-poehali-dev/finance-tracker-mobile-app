@@ -208,7 +208,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 h-12">
+          <TabsList className="grid w-full grid-cols-6 h-12">
             <TabsTrigger value="overview" className="text-base">
               <Icon name="LayoutDashboard" size={18} className="mr-2" />
               Обзор
@@ -220,6 +220,18 @@ const Index = () => {
             <TabsTrigger value="income" className="text-base">
               <Icon name="TrendingUp" size={18} className="mr-2" />
               Доходы
+            </TabsTrigger>
+            <TabsTrigger value="fixed" className="text-base">
+              <Icon name="Calendar" size={18} className="mr-2" />
+              Фиксированные
+            </TabsTrigger>
+            <TabsTrigger value="forecast" className="text-base">
+              <Icon name="LineChart" size={18} className="mr-2" />
+              Прогноз
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="text-base">
+              <Icon name="Settings" size={18} className="mr-2" />
+              Настройки
             </TabsTrigger>
           </TabsList>
 
@@ -473,6 +485,148 @@ const Index = () => {
                   {incomes.length === 0 && (
                     <p className="text-center text-muted-foreground py-12">Пока нет доходов</p>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fixed" className="space-y-6 animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>Фиксированные расходы</CardTitle>
+                <CardDescription>Регулярные ежемесячные платежи</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-6 border-2 border-dashed rounded-lg text-center text-muted-foreground">
+                    <Icon name="Calendar" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Раздел в разработке</p>
+                    <p className="text-sm mt-2">Здесь будут отображаться регулярные платежи</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="forecast" className="space-y-6 animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>Прогноз расходов</CardTitle>
+                <CardDescription>Анализ и предсказание будущих трат</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Средний расход в день</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {dailyAverage.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                      </p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Прогноз на месяц</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {projectedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                      </p>
+                    </div>
+                    <div className="p-4 bg-orange-50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Ожидаемый остаток</p>
+                      <p className={`text-2xl font-bold ${projectedBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {projectedBalance.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                      </p>
+                    </div>
+                  </div>
+
+                  {isCurrentMonth && (
+                    <Card className="bg-gradient-to-br from-purple-50 to-blue-50">
+                      <CardHeader>
+                        <CardTitle className="text-lg">Прогноз до конца месяца</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Осталось дней: {daysRemaining}
+                        </p>
+                        <Progress value={(currentDate.getDate() / daysInMonth) * 100} className="h-2 mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          При текущем темпе расходов ({dailyAverage.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽/день) 
+                          к концу месяца вы потратите около {projectedExpenses.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Распределение расходов по категориям</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {expensesByCategory.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={expensesByCategory}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={100}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {expensesByCategory.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => `${value.toLocaleString('ru-RU')} ₽`} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8">Нет данных для отображения</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6 animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>Настройки</CardTitle>
+                <CardDescription>Персонализация трекера</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Профиль</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Email</span>
+                      <span className="font-medium">{user.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Имя</span>
+                      <span className="font-medium">{user.name}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Месячный бюджет</h3>
+                  <div className="p-6 border-2 border-dashed rounded-lg text-center text-muted-foreground">
+                    <Icon name="Target" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Раздел в разработке</p>
+                    <p className="text-sm mt-2">Скоро вы сможете установить лимит расходов</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Уведомления</h3>
+                  <div className="p-6 border-2 border-dashed rounded-lg text-center text-muted-foreground">
+                    <Icon name="Bell" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Раздел в разработке</p>
+                    <p className="text-sm mt-2">Настройка напоминаний и уведомлений</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
