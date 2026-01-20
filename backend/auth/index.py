@@ -186,12 +186,12 @@ def verify_code(email: str, code: str) -> dict:
         }
     
     cur.execute(f'''
-        INSERT INTO {schema}.users (email, name)
-        VALUES (%s, %s)
+        INSERT INTO {schema}.users (google_id, email, name)
+        VALUES (%s, %s, %s)
         ON CONFLICT (email) DO UPDATE 
         SET name = EXCLUDED.name
         RETURNING id, email, name
-    ''', (email.lower(), email.split('@')[0]))
+    ''', ('', email.lower(), email.split('@')[0]))
     
     user = cur.fetchone()
     
