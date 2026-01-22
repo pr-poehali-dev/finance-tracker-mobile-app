@@ -537,6 +537,12 @@ def delete_item(user_id: int, query_params: dict) -> dict:
     
     table = 'fixed_expenses' if resource_type == 'fixed' else 'planning'
     
+    if resource_type == 'planning':
+        cur.execute(f'''
+            DELETE FROM {schema}.planning_deposits
+            WHERE planning_id = %s
+        ''', (item_id,))
+    
     cur.execute(f'''
         DELETE FROM {schema}.{table}
         WHERE id = %s AND user_id = %s
