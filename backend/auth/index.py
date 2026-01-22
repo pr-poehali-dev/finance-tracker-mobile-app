@@ -7,6 +7,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import uuid
 
 def handler(event: dict, context) -> dict:
     '''API для авторизации пользователей по email с 6-значным кодом'''
@@ -194,11 +195,12 @@ def verify_code(email: str, code: str) -> dict:
     
     # Если пользователя нет, создаём его
     if not user:
+        unique_id = f'email_{uuid.uuid4().hex[:16]}'
         cur.execute(f'''
             INSERT INTO {schema}.users (google_id, email, name)
             VALUES (%s, %s, %s)
             RETURNING id, email, name
-        ''', ('', email.lower(), email.split('@')[0]))
+        ''', (unique_id, email.lower(), email.split('@')[0]))
         user = cur.fetchone()
     
     cur.execute(f'''
