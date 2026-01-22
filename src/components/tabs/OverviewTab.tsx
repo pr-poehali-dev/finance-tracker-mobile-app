@@ -27,9 +27,67 @@ interface OverviewTabProps {
 
 const OverviewTab = ({ monthlyIncome, monthlyExpenses, regularExpenses, fixedExpenses, expenses, incomes }: OverviewTabProps) => {
   const balance = monthlyIncome - monthlyExpenses;
+  const incomePercentage = monthlyIncome > 0 ? (monthlyIncome / (monthlyIncome + monthlyExpenses)) * 100 : 50;
+  const expensePercentage = 100 - incomePercentage;
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Icon name="BarChart3" size={20} />
+            Баланс за месяц
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 h-16 rounded-lg overflow-hidden">
+            <div 
+              className="bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center transition-all duration-500"
+              style={{ width: `${incomePercentage}%` }}
+            >
+              {incomePercentage > 20 && (
+                <span className="text-white font-bold text-sm sm:text-base">
+                  {monthlyIncome.toLocaleString('ru-RU')} ₽
+                </span>
+              )}
+            </div>
+            <div 
+              className="bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center transition-all duration-500"
+              style={{ width: `${expensePercentage}%` }}
+            >
+              {expensePercentage > 20 && (
+                <span className="text-white font-bold text-sm sm:text-base">
+                  {monthlyExpenses.toLocaleString('ru-RU')} ₽
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-muted-foreground">Доходы</span>
+              <span className="font-semibold">{incomePercentage.toFixed(0)}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+              <span className="text-muted-foreground">Расходы</span>
+              <span className="font-semibold">{expensePercentage.toFixed(0)}%</span>
+            </div>
+          </div>
+
+          <div className={`text-center py-3 px-4 rounded-lg ${balance >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+            <p className="text-sm text-muted-foreground mb-1">Результат месяца</p>
+            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {balance >= 0 ? '+' : ''}{balance.toLocaleString('ru-RU')} ₽
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {balance >= 0 ? 'Вы в плюсе! 🎉' : 'Расходы превышают доходы'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
           <CardHeader className="pb-3">
