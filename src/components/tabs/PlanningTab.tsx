@@ -38,6 +38,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
     targetDate: '',
   });
   const [editingAmount, setEditingAmount] = useState<{ [key: number]: { amount: string; comment: string } }>({});
+  const [editingDeposit, setEditingDeposit] = useState<{ id: number; amount: string; comment: string } | null>(null);
   const [expandedGoal, setExpandedGoal] = useState<number | null>(null);
   const [deposits, setDeposits] = useState<{ [key: number]: PlanningDeposit[] }>({});
 
@@ -62,6 +63,34 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       setDeposits(prev => ({ ...prev, [planningId]: data }));
     } catch (error) {
       console.error('Failed to load deposits:', error);
+    }
+  };
+
+  const updateDeposit = async (planningId: number, depositId: number) => {
+    if (!editingDeposit) return;
+
+    try {
+      await api.planning.updateDeposit(
+        planningId,
+        depositId,
+        parseFloat(editingDeposit.amount),
+        editingDeposit.comment
+      );
+      setEditingDeposit(null);
+      await loadItems();
+      await loadDeposits(planningId);
+    } catch (error) {
+      console.error('Failed to update deposit:', error);
+    }
+  };
+
+  const deleteDeposit = async (planningId: number, depositId: number) => {
+    try {
+      await api.planning.deleteDeposit(planningId, depositId);
+      await loadItems();
+      await loadDeposits(planningId);
+    } catch (error) {
+      console.error('Failed to delete deposit:', error);
     }
   };
 
@@ -327,24 +356,84 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                         <div className="mt-3 p-3 bg-white rounded-lg space-y-2 max-h-60 overflow-y-auto">
                           {deposits[item.id]?.length > 0 ? (
                             deposits[item.id].map(deposit => (
-                              <div key={deposit.id} className="flex justify-between items-start p-2 bg-gray-50 rounded text-xs sm:text-sm">
-                                <div className="flex-1">
-                                  <p className="font-semibold text-red-600">
-                                    -{deposit.amount.toLocaleString('ru-RU')} ₽
-                                  </p>
-                                  {deposit.comment && (
-                                    <p className="text-muted-foreground text-xs mt-1">{deposit.comment}</p>
-                                  )}
-                                </div>
-                                <p className="text-muted-foreground text-xs whitespace-nowrap ml-2">
-                                  {new Date(deposit.createdAt).toLocaleString('ru-RU', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </p>
+                              <div key={deposit.id}>
+                                {editingDeposit?.id === deposit.id ? (
+                                  <div className="p-2 bg-blue-50 rounded space-y-2">
+                                    <Input
+                                      type="number"
+                                      value={editingDeposit.amount}
+                                      onChange={e => setEditingDeposit({ ...editingDeposit, amount: e.target.value })}
+                                      placeholder="Сумма"
+                                      className="text-sm"
+                                    />
+                                    <Textarea
+                                      value={editingDeposit.comment}
+                                      onChange={e => setEditingDeposit({ ...editingDeposit, comment: e.target.value })}
+                                      placeholder="Комментарий"
+                                      className="text-sm resize-none"
+                                      rows={2}
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => updateDeposit(item.id, deposit.id)}
+                                        className="flex-1"
+                                      >
+                                        Сохранить
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingDeposit(null)}
+                                        className="flex-1"
+                                      >
+                                        Отмена
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-between items-start p-2 bg-gray-50 rounded text-xs sm:text-sm group">
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-red-600">
+                                        -{deposit.amount.toLocaleString('ru-RU')} ₽
+                                      </p>
+                                      {deposit.comment && (
+                                        <p className="text-muted-foreground text-xs mt-1">{deposit.comment}</p>
+                                      )}
+                                      <p className="text-muted-foreground text-xs mt-1">
+                                        {new Date(deposit.createdAt).toLocaleString('ru-RU', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setEditingDeposit({
+                                          id: deposit.id,
+                                          amount: deposit.amount.toString(),
+                                          comment: deposit.comment
+                                        })}
+                                        className="h-6 w-6 p-0"
+                                      >
+                                        <Icon name="Edit2" size={12} />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => deleteDeposit(item.id, deposit.id)}
+                                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                      >
+                                        <Icon name="Trash2" size={12} />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ))
                           ) : (

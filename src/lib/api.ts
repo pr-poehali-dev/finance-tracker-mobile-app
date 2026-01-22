@@ -366,6 +366,36 @@ export const api = {
       return data.deposits;
     },
     
+    updateDeposit: async (planningId: number, depositId: number, amount: number, comment: string): Promise<void> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      
+      const response = await fetch(FIXED_PLANNING_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ depositId, planningId, amount, comment }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update deposit');
+    },
+    
+    deleteDeposit: async (planningId: number, depositId: number): Promise<void> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      
+      const response = await fetch(`${FIXED_PLANNING_URL}?id=${planningId}&depositId=${depositId}&type=planning`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete deposit');
+    },
+    
     delete: async (id: number): Promise<void> => {
       const token = localStorage.getItem('auth_token');
       if (!token) throw new Error('Not authenticated');

@@ -46,7 +46,7 @@ def handler(event: dict, context) -> dict:
     resource_type = query_params.get('type')
     
     if method == 'GET' and resource_type:
-        if 'id' in query_params:
+        if 'id' in query_params and 'depositId' not in query_params:
             return get_deposits(user_id, query_params['id'])
         return get_items(user_id, resource_type)
     
@@ -56,9 +56,13 @@ def handler(event: dict, context) -> dict:
     
     if method == 'PUT':
         body = json.loads(event.get('body', '{}'))
+        if 'depositId' in body:
+            return update_deposit(user_id, body['depositId'], body['planningId'], body['amount'], body.get('comment', ''))
         return update_item(user_id, body)
     
     if method == 'DELETE' and 'id' in query_params:
+        if 'depositId' in query_params:
+            return delete_deposit(user_id, query_params)
         return delete_item(user_id, query_params)
     
     return {
@@ -399,6 +403,117 @@ def get_deposits(user_id: int, planning_id: str) -> dict:
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
         'body': json.dumps({'deposits': deposits}),
+        'isBase64Encoded': False
+    }
+
+def update_deposit(user_id: int, deposit_id: int, planning_id: int, new_amount: float, new_comment: str) -> dict:
+    '''Обновляет трату в планировании'''
+    
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
+    schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
+    
+    cur.execute(f'''
+        SELECT pd.amount
+        FROM {schema}.planning_deposits pd
+        JOIN {schema}.planning p ON pd.planning_id = p.id
+        WHERE pd.id = %s AND p.user_id = %s
+    ''', (deposit_id, user_id))
+    
+    result = cur.fetchone()
+    if not result:
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 404,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Deposit not found'}),
+            'isBase64Encoded': False
+        }
+    
+    old_amount = float(result[0])
+    amount_diff = new_amount - old_amount
+    
+    cur.execute(f'''
+        UPDATE {schema}.planning_deposits
+        SET amount = %s, comment = %s, updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    ''', (new_amount, new_comment, deposit_id))
+    
+    cur.execute(f'''
+        UPDATE {schema}.planning
+        SET saved_amount = saved_amount + %s, updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    ''', (amount_diff, planning_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'success': True}),
+        'isBase64Encoded': False
+    }
+
+def delete_deposit(user_id: int, query_params: dict) -> dict:
+    '''Удаляет конкретную трату из истории'''
+    
+    deposit_id = query_params.get('depositId')
+    planning_id = query_params.get('id')
+    
+    if not deposit_id or not planning_id:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Missing depositId or id'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
+    schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
+    
+    cur.execute(f'''
+        SELECT pd.amount
+        FROM {schema}.planning_deposits pd
+        JOIN {schema}.planning p ON pd.planning_id = p.id
+        WHERE pd.id = %s AND p.id = %s AND p.user_id = %s
+    ''', (deposit_id, planning_id, user_id))
+    
+    result = cur.fetchone()
+    if not result:
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 404,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Deposit not found'}),
+            'isBase64Encoded': False
+        }
+    
+    deposit_amount = float(result[0])
+    
+    cur.execute(f'''
+        DELETE FROM {schema}.planning_deposits
+        WHERE id = %s
+    ''', (deposit_id,))
+    
+    cur.execute(f'''
+        UPDATE {schema}.planning
+        SET saved_amount = saved_amount - %s, updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    ''', (deposit_amount, planning_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'success': True}),
         'isBase64Encoded': False
     }
 
