@@ -185,15 +185,21 @@ def verify_code(email: str, code: str) -> dict:
             'isBase64Encoded': False
         }
     
+    # Проверяем, существует ли пользователь
     cur.execute(f'''
-        INSERT INTO {schema}.users (google_id, email, name)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (email) DO UPDATE 
-        SET name = EXCLUDED.name
-        RETURNING id, email, name
-    ''', ('', email.lower(), email.split('@')[0]))
+        SELECT id, email, name FROM {schema}.users WHERE email = %s
+    ''', (email.lower(),))
     
     user = cur.fetchone()
+    
+    # Если пользователя нет, создаём его
+    if not user:
+        cur.execute(f'''
+            INSERT INTO {schema}.users (google_id, email, name)
+            VALUES (%s, %s, %s)
+            RETURNING id, email, name
+        ''', ('', email.lower(), email.split('@')[0]))
+        user = cur.fetchone()
     
     cur.execute(f'''
         DELETE FROM {schema}.verification_codes WHERE email = %s
