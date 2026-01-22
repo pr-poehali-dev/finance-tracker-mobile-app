@@ -83,7 +83,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
     }
   };
 
-  const addAmount = async (id: number) => {
+  const addExpense = async (id: number) => {
     const value = editingAmount[id];
     if (!value || !value.amount) return;
 
@@ -98,7 +98,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
         await loadDeposits(id);
       }
     } catch (error) {
-      console.error('Failed to add amount:', error);
+      console.error('Failed to add expense:', error);
     }
   };
 
@@ -144,15 +144,15 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
-      <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Планирование покупок</CardTitle>
-          <CardDescription className="text-sm">Ставьте финансовые цели и отслеживайте прогресс</CardDescription>
+          <CardTitle className="text-base sm:text-lg">Планирование бюджета</CardTitle>
+          <CardDescription className="text-sm">Установите бюджет и отслеживайте траты</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="space-y-3">
             <div>
-              <Label>Категория бюджета</Label>
+              <Label>Название бюджета</Label>
               <Input
                 placeholder="Например: Продукты на месяц"
                 value={newItem.title}
@@ -160,10 +160,10 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
               />
             </div>
             <div>
-              <Label>Целевая сумма</Label>
+              <Label>Сумма бюджета</Label>
               <Input
                 type="number"
-                placeholder="0"
+                placeholder="50000"
                 value={newItem.targetAmount}
                 onChange={e => setNewItem({ ...newItem, targetAmount: e.target.value })}
               />
@@ -187,7 +187,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
               </Select>
             </div>
             <div>
-              <Label>Дата цели (опционально)</Label>
+              <Label>Период (опционально)</Label>
               <Input
                 type="date"
                 value={newItem.targetDate}
@@ -196,8 +196,8 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
             </div>
           </div>
           <Button onClick={addItem} className="w-full">
-            <Icon name="Target" size={16} className="mr-2" />
-            Добавить цель
+            <Icon name="Wallet" size={16} className="mr-2" />
+            Создать бюджет
           </Button>
         </CardContent>
       </Card>
@@ -205,16 +205,17 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       {activeGoals.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Активные цели</CardTitle>
+            <CardTitle>Активные бюджеты</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {activeGoals.map(item => {
                 const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
-                const totalProgress = item.savedAmount;
-                const progress = (totalProgress / item.targetAmount) * 100;
-                const remaining = item.targetAmount - totalProgress;
+                const spent = item.savedAmount;
+                const remaining = item.targetAmount - spent;
+                const progress = (spent / item.targetAmount) * 100;
                 const isExpanded = expandedGoal === item.id;
+                const isOverBudget = remaining < 0;
 
                 return (
                   <div key={item.id} className="p-3 sm:p-4 bg-secondary/50 rounded-lg space-y-3">
@@ -233,31 +234,38 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                         </div>
                       </div>
 
-                      <div className="text-center py-2 bg-white rounded-lg">
-                        <p className="text-3xl sm:text-4xl font-bold text-orange-600">
-                          {remaining.toLocaleString('ru-RU')} ₽
+                      <div className="text-center py-3 bg-white rounded-lg border-2" style={{
+                        borderColor: isOverBudget ? '#EF4444' : remaining < item.targetAmount * 0.2 ? '#F59E0B' : '#10B981'
+                      }}>
+                        <p className={`text-4xl sm:text-5xl font-bold ${
+                          isOverBudget ? 'text-red-600' : remaining < item.targetAmount * 0.2 ? 'text-orange-600' : 'text-green-600'
+                        }`}>
+                          {Math.abs(remaining).toLocaleString('ru-RU')} ₽
                         </p>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          осталось накопить
+                          {isOverBudget ? 'превышен бюджет' : 'осталось в бюджете'}
                         </p>
                       </div>
 
                       <div className="bg-white p-2 rounded-lg space-y-1">
                         <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="text-muted-foreground">Накоплено:</span>
-                          <span className="font-semibold text-green-600">
-                            {totalProgress.toLocaleString('ru-RU')} ₽
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="text-muted-foreground">Цель:</span>
+                          <span className="text-muted-foreground">Бюджет:</span>
                           <span className="font-medium">
                             {item.targetAmount.toLocaleString('ru-RU')} ₽
                           </span>
                         </div>
-                        <Progress value={progress} className="h-2 mt-2" />
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-muted-foreground">Потрачено:</span>
+                          <span className={`font-semibold ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
+                            {spent.toLocaleString('ru-RU')} ₽
+                          </span>
+                        </div>
+                        <Progress 
+                          value={Math.min(progress, 100)} 
+                          className="h-2 mt-2"
+                        />
                         <p className="text-xs text-center text-muted-foreground mt-1">
-                          {progress.toFixed(0)}% выполнено
+                          {progress.toFixed(0)}% использовано
                         </p>
                       </div>
                     </div>
@@ -266,7 +274,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                       <div className="space-y-2">
                         <Input
                           type="number"
-                          placeholder="Сумма пополнения"
+                          placeholder="Сумма траты"
                           value={editingAmount[item.id]?.amount || ''}
                           onChange={e =>
                             setEditingAmount({
@@ -298,12 +306,12 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
 
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Button
-                          onClick={() => addAmount(item.id)}
+                          onClick={() => addExpense(item.id)}
                           className="flex-1"
                           variant="default"
                         >
-                          <Icon name="Plus" size={16} className="mr-2" />
-                          Внести
+                          <Icon name="Minus" size={16} className="mr-2" />
+                          Добавить трату
                         </Button>
                         <Button
                           onClick={() => toggleExpanded(item.id)}
@@ -321,8 +329,8 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                             deposits[item.id].map(deposit => (
                               <div key={deposit.id} className="flex justify-between items-start p-2 bg-gray-50 rounded text-xs sm:text-sm">
                                 <div className="flex-1">
-                                  <p className="font-semibold text-green-600">
-                                    +{deposit.amount.toLocaleString('ru-RU')} ₽
+                                  <p className="font-semibold text-red-600">
+                                    -{deposit.amount.toLocaleString('ru-RU')} ₽
                                   </p>
                                   {deposit.comment && (
                                     <p className="text-muted-foreground text-xs mt-1">{deposit.comment}</p>
@@ -341,7 +349,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                             ))
                           ) : (
                             <p className="text-center text-muted-foreground text-sm py-4">
-                              История пополнений пуста
+                              История трат пуста
                             </p>
                           )}
                         </div>
@@ -378,12 +386,14 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       {completedGoals.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-muted-foreground">Завершенные цели</CardTitle>
+            <CardTitle className="text-muted-foreground">Завершенные бюджеты</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {completedGoals.map(item => {
                 const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
+                const spent = item.savedAmount;
+                const remaining = item.targetAmount - spent;
                 return (
                   <div
                     key={item.id}
@@ -397,7 +407,10 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                           <Badge variant="outline" className="text-xs">{category?.label}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Накоплено: {item.savedAmount.toLocaleString('ru-RU')} ₽
+                          Потрачено: {spent.toLocaleString('ru-RU')} ₽ из {item.targetAmount.toLocaleString('ru-RU')} ₽
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {remaining >= 0 ? `Осталось: ${remaining.toLocaleString('ru-RU')} ₽` : `Перерасход: ${Math.abs(remaining).toLocaleString('ru-RU')} ₽`}
                         </p>
                       </div>
                       <Button
