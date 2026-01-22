@@ -38,6 +38,13 @@ export interface PlanningGoal {
   createdAt: string;
 }
 
+export interface PlanningDeposit {
+  id: number;
+  amount: number;
+  comment: string;
+  createdAt: string;
+}
+
 export interface AutoExpenseResult {
   created: Array<{
     id: number;
@@ -324,7 +331,7 @@ export const api = {
       return data.item;
     },
     
-    update: async (id: number, updates: { savedAmount?: number; isCompleted?: boolean }): Promise<PlanningGoal> => {
+    update: async (id: number, updates: { addAmount?: number; comment?: string; isCompleted?: boolean }): Promise<PlanningGoal> => {
       const token = localStorage.getItem('auth_token');
       if (!token) throw new Error('Not authenticated');
       
@@ -341,6 +348,22 @@ export const api = {
       
       const data = await response.json();
       return data.item;
+    },
+    
+    getDeposits: async (planningId: number): Promise<PlanningDeposit[]> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      
+      const response = await fetch(`${FIXED_PLANNING_URL}?type=planning&id=${planningId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch deposits');
+      
+      const data = await response.json();
+      return data.deposits;
     },
     
     delete: async (id: number): Promise<void> => {

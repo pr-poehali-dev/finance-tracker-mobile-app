@@ -46,6 +46,8 @@ def handler(event: dict, context) -> dict:
     resource_type = query_params.get('type')
     
     if method == 'GET' and resource_type:
+        if 'id' in query_params:
+            return get_deposits(user_id, query_params['id'])
         return get_items(user_id, resource_type)
     
     if method == 'POST':
@@ -291,30 +293,37 @@ def update_item(user_id: int, body: dict) -> dict:
         }
     
     elif resource_type == 'planning':
-        saved_amount = body.get('savedAmount')
-        is_completed = body.get('isCompleted')
-        
-        update_fields = []
-        params = []
-        
-        if saved_amount is not None:
-            update_fields.append('saved_amount = %s')
-            params.append(saved_amount)
-        
-        if is_completed is not None:
-            update_fields.append('is_completed = %s')
-            params.append(is_completed)
-        
-        update_fields.append('updated_at = CURRENT_TIMESTAMP')
-        
-        params.extend([item_id, user_id])
-        
-        cur.execute(f'''
-            UPDATE {schema}.planning
-            SET {', '.join(update_fields)}
-            WHERE id = %s AND user_id = %s
-            RETURNING id, title, target_amount, saved_amount, target_date, category, is_completed, created_at
-        ''', params)
+        if 'addAmount' in body:
+            amount_to_add = body['addAmount']
+            comment = body.get('comment', '')
+            
+            cur.execute(f'''
+                INSERT INTO {schema}.planning_deposits (planning_id, amount, comment)
+                VALUES (%s, %s, %s)
+            ''', (item_id, amount_to_add, comment))
+            
+            cur.execute(f'''
+                UPDATE {schema}.planning
+                SET saved_amount = saved_amount + %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s
+                RETURNING id, title, target_amount, saved_amount, target_date, category, is_completed, created_at
+            ''', (amount_to_add, item_id, user_id))
+        elif 'isCompleted' in body:
+            cur.execute(f'''
+                UPDATE {schema}.planning
+                SET is_completed = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s
+                RETURNING id, title, target_amount, saved_amount, target_date, category, is_completed, created_at
+            ''', (body['isCompleted'], item_id, user_id))
+        else:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'No fields to update'}),
+                'isBase64Encoded': False
+            }
         
         row = cur.fetchone()
         if not row:
@@ -355,6 +364,41 @@ def update_item(user_id: int, body: dict) -> dict:
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
         'body': json.dumps({'item': result}),
+        'isBase64Encoded': False
+    }
+
+def get_deposits(user_id: int, planning_id: str) -> dict:
+    '''Получает историю пополнений для цели'''
+    
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
+    schema = os.environ.get('MAIN_DB_SCHEMA', 'public')
+    
+    cur.execute(f'''
+        SELECT pd.id, pd.amount, pd.comment, pd.created_at
+        FROM {schema}.planning_deposits pd
+        JOIN {schema}.planning p ON pd.planning_id = p.id
+        WHERE p.user_id = %s AND pd.planning_id = %s
+        ORDER BY pd.created_at DESC
+    ''', (user_id, planning_id))
+    
+    rows = cur.fetchall()
+    deposits = []
+    for row in rows:
+        deposits.append({
+            'id': row[0],
+            'amount': float(row[1]),
+            'comment': row[2] or '',
+            'createdAt': row[3].isoformat() if row[3] else None
+        })
+    
+    cur.close()
+    conn.close()
+    
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'deposits': deposits}),
         'isBase64Encoded': False
     }
 

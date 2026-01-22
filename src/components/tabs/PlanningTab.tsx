@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { api, PlanningGoal, Transaction } from '@/lib/api';
+import { Textarea } from '@/components/ui/textarea';
+import { api, PlanningGoal, PlanningDeposit, Transaction } from '@/lib/api';
 
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты', color: '#0EA5E9' },
@@ -36,7 +37,9 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
     category: 'food',
     targetDate: '',
   });
-  const [editingSaved, setEditingSaved] = useState<{ [key: number]: string }>({});
+  const [editingAmount, setEditingAmount] = useState<{ [key: number]: { amount: string; comment: string } }>({});
+  const [expandedGoal, setExpandedGoal] = useState<number | null>(null);
+  const [deposits, setDeposits] = useState<{ [key: number]: PlanningDeposit[] }>({});
 
   useEffect(() => {
     loadItems();
@@ -50,6 +53,15 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       console.error('Failed to load planning goals:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDeposits = async (planningId: number) => {
+    try {
+      const data = await api.planning.getDeposits(planningId);
+      setDeposits(prev => ({ ...prev, [planningId]: data }));
+    } catch (error) {
+      console.error('Failed to load deposits:', error);
     }
   };
 
@@ -71,16 +83,22 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
     }
   };
 
-  const updateSaved = async (id: number) => {
-    const value = editingSaved[id];
-    if (!value) return;
+  const addAmount = async (id: number) => {
+    const value = editingAmount[id];
+    if (!value || !value.amount) return;
 
     try {
-      await api.planning.update(id, { savedAmount: parseFloat(value) });
-      setEditingSaved({ ...editingSaved, [id]: '' });
+      await api.planning.update(id, { 
+        addAmount: parseFloat(value.amount),
+        comment: value.comment || ''
+      });
+      setEditingAmount({ ...editingAmount, [id]: { amount: '', comment: '' } });
       await loadItems();
+      if (expandedGoal === id) {
+        await loadDeposits(id);
+      }
     } catch (error) {
-      console.error('Failed to update saved amount:', error);
+      console.error('Failed to add amount:', error);
     }
   };
 
@@ -99,6 +117,17 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       await loadItems();
     } catch (error) {
       console.error('Failed to delete planning goal:', error);
+    }
+  };
+
+  const toggleExpanded = async (id: number) => {
+    if (expandedGoal === id) {
+      setExpandedGoal(null);
+    } else {
+      setExpandedGoal(id);
+      if (!deposits[id]) {
+        await loadDeposits(id);
+      }
     }
   };
 
@@ -121,7 +150,7 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
           <CardDescription className="text-sm">Ставьте финансовые цели и отслеживайте прогресс</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="space-y-3">
             <div>
               <Label>Категория бюджета</Label>
               <Input
@@ -185,72 +214,158 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
                 const totalProgress = item.savedAmount;
                 const progress = (totalProgress / item.targetAmount) * 100;
                 const remaining = item.targetAmount - totalProgress;
+                const isExpanded = expandedGoal === item.id;
 
                 return (
-                  <div key={item.id} className="p-4 bg-secondary/50 rounded-lg space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg">{item.title}</h3>
-                          <Badge variant="outline">{category?.label}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {item.targetDate && `До ${new Date(item.targetDate).toLocaleDateString('ru-RU')}`}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">
-                          {totalProgress.toLocaleString('ru-RU')} ₽
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          из {item.targetAmount.toLocaleString('ru-RU')} ₽
-                        </p>
-                      </div>
-                    </div>
-
+                  <div key={item.id} className="p-3 sm:p-4 bg-secondary/50 rounded-lg space-y-3">
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Прогресс: {progress.toFixed(0)}%</span>
-                        <span className="text-orange-600 font-medium">
-                          Осталось: {remaining.toLocaleString('ru-RU')} ₽
-                        </span>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-base sm:text-lg">{item.title}</h3>
+                            <Badge variant="outline" className="text-xs">{category?.label}</Badge>
+                          </div>
+                          {item.targetDate && (
+                            <p className="text-xs sm:text-sm text-muted-foreground">
+                              До {new Date(item.targetDate).toLocaleDateString('ru-RU')}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <Progress value={progress} className="h-2" />
+
+                      <div className="text-center py-2 bg-white rounded-lg">
+                        <p className="text-3xl sm:text-4xl font-bold text-orange-600">
+                          {remaining.toLocaleString('ru-RU')} ₽
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          осталось накопить
+                        </p>
+                      </div>
+
+                      <div className="bg-white p-2 rounded-lg space-y-1">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-muted-foreground">Накоплено:</span>
+                          <span className="font-semibold text-green-600">
+                            {totalProgress.toLocaleString('ru-RU')} ₽
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-muted-foreground">Цель:</span>
+                          <span className="font-medium">
+                            {item.targetAmount.toLocaleString('ru-RU')} ₽
+                          </span>
+                        </div>
+                        <Progress value={progress} className="h-2 mt-2" />
+                        <p className="text-xs text-center text-muted-foreground mt-1">
+                          {progress.toFixed(0)}% выполнено
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2">
-                      <Input
-                        type="number"
-                        placeholder="Добавить сумму"
-                        value={editingSaved[item.id] || ''}
-                        onChange={e =>
-                          setEditingSaved({ ...editingSaved, [item.id]: e.target.value })
-                        }
-                        className="flex-1"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => updateSaved(item.id)}
-                        disabled={!editingSaved[item.id]}
-                      >
-                        <Icon name="Plus" size={14} className="mr-1" />
-                        Внести
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleCompleted(item.id, item.isCompleted)}
-                        title="Отметить как выполненную"
-                      >
-                        <Icon name="Check" size={14} />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteItem(item.id)}
-                      >
-                        <Icon name="Trash2" size={14} className="text-destructive" />
-                      </Button>
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="space-y-2">
+                        <Input
+                          type="number"
+                          placeholder="Сумма пополнения"
+                          value={editingAmount[item.id]?.amount || ''}
+                          onChange={e =>
+                            setEditingAmount({
+                              ...editingAmount,
+                              [item.id]: { 
+                                ...editingAmount[item.id], 
+                                amount: e.target.value 
+                              }
+                            })
+                          }
+                          className="w-full"
+                        />
+                        <Textarea
+                          placeholder="Комментарий (опционально)"
+                          value={editingAmount[item.id]?.comment || ''}
+                          onChange={e =>
+                            setEditingAmount({
+                              ...editingAmount,
+                              [item.id]: { 
+                                ...editingAmount[item.id], 
+                                comment: e.target.value 
+                              }
+                            })
+                          }
+                          className="w-full resize-none"
+                          rows={2}
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          onClick={() => addAmount(item.id)}
+                          className="flex-1"
+                          variant="default"
+                        >
+                          <Icon name="Plus" size={16} className="mr-2" />
+                          Внести
+                        </Button>
+                        <Button
+                          onClick={() => toggleExpanded(item.id)}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          <Icon name={isExpanded ? "ChevronUp" : "History"} size={16} className="mr-2" />
+                          {isExpanded ? "Скрыть" : "История"}
+                        </Button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-3 p-3 bg-white rounded-lg space-y-2 max-h-60 overflow-y-auto">
+                          {deposits[item.id]?.length > 0 ? (
+                            deposits[item.id].map(deposit => (
+                              <div key={deposit.id} className="flex justify-between items-start p-2 bg-gray-50 rounded text-xs sm:text-sm">
+                                <div className="flex-1">
+                                  <p className="font-semibold text-green-600">
+                                    +{deposit.amount.toLocaleString('ru-RU')} ₽
+                                  </p>
+                                  {deposit.comment && (
+                                    <p className="text-muted-foreground text-xs mt-1">{deposit.comment}</p>
+                                  )}
+                                </div>
+                                <p className="text-muted-foreground text-xs whitespace-nowrap ml-2">
+                                  {new Date(deposit.createdAt).toLocaleString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-center text-muted-foreground text-sm py-4">
+                              История пополнений пуста
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={() => toggleCompleted(item.id, item.isCompleted)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Icon name="Check" size={14} className="mr-1" />
+                          Завершить
+                        </Button>
+                        <Button
+                          onClick={() => deleteItem(item.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Icon name="Trash2" size={14} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -263,47 +378,35 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
       {completedGoals.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Icon name="CheckCircle2" size={20} className="text-green-600" />
-              Выполненные цели
-            </CardTitle>
+            <CardTitle className="text-muted-foreground">Завершенные цели</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {completedGoals.map(item => {
                 const category = EXPENSE_CATEGORIES.find(c => c.value === item.category);
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg"
+                    className="p-3 bg-gray-50 rounded-lg opacity-70 space-y-2"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Icon name="CheckCircle2" size={16} className="text-green-600" />
-                        <p className="font-medium">{item.title}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {category?.label}
-                        </Badge>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Check" size={16} className="text-green-600" />
+                          <h3 className="font-semibold text-sm line-through">{item.title}</h3>
+                          <Badge variant="outline" className="text-xs">{category?.label}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Накоплено: {item.savedAmount.toLocaleString('ru-RU')} ₽
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground ml-6">
-                        {item.targetAmount.toLocaleString('ru-RU')} ₽
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleCompleted(item.id, item.isCompleted)}
-                        title="Вернуть в активные"
-                      >
-                        <Icon name="RotateCcw" size={14} />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={() => deleteItem(item.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
                       >
-                        <Icon name="Trash2" size={14} className="text-destructive" />
+                        <Icon name="Trash2" size={14} />
                       </Button>
                     </div>
                   </div>
@@ -312,14 +415,6 @@ const PlanningTab = ({ expenses }: PlanningTabProps) => {
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {items.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Icon name="Target" size={48} className="mx-auto mb-4 opacity-50" />
-          <p>Пока нет целей для планирования</p>
-          <p className="text-sm mt-2">Добавьте цель и начните копить на мечту</p>
-        </div>
       )}
     </div>
   );
