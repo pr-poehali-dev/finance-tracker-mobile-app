@@ -305,6 +305,13 @@ def ask_claude(data: dict, question: str) -> str:
         }
     )
 
-    with urlopen(req, timeout=25) as resp:
-        result = json.loads(resp.read().decode('utf-8'))
-        return result['content'][0]['text']
+    try:
+        with urlopen(req, timeout=25) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+            return result['content'][0]['text']
+    except Exception as e:
+        import urllib.error
+        if isinstance(e, urllib.error.HTTPError):
+            body = e.read().decode('utf-8')
+            print(f"[ERROR] Anthropic {e.code}: {body}")
+        raise
