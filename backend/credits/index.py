@@ -284,24 +284,39 @@ def build_prompt(data: dict, question: str) -> tuple:
 
 def get_gigachat_token(credentials: str) -> str:
     import uuid
-    payload = 'scope=GIGACHAT_API_PERS'.encode('utf-8')
-    req = Request(
-        'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
-        data=payload,
-        headers={
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-            'RqUID': str(uuid.uuid4()),
-            'Authorization': f'Basic {credentials}',
-        }
-    )
     import ssl
+
+    scopes = ['GIGACHAT_API_PERS', 'GIGACHAT_API_B2B', 'GIGACHAT_API_CORP']
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
-    with urlopen(req, timeout=30, context=ctx) as resp:
-        result = json.loads(resp.read().decode('utf-8'))
-        return result['access_token']
+
+    last_err = None
+    for scope in scopes:
+        payload = f'scope={scope}'.encode('utf-8')
+        req = Request(
+            'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+            data=payload,
+            headers={
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'RqUID': str(uuid.uuid4()),
+                'Authorization': f'Basic {credentials}',
+            }
+        )
+        try:
+            with urlopen(req, timeout=15, context=ctx) as resp:
+                result = json.loads(resp.read().decode('utf-8'))
+                print(f'GigaChat token OK with scope={scope}')
+                return result['access_token']
+        except Exception as e:
+            body = ''
+            if hasattr(e, 'read'):
+                try: body = e.read().decode('utf-8')
+                except: pass
+            print(f'GigaChat token scope={scope} failed: {e} | {body}')
+            last_err = e
+    raise last_err
 
 
 def ask_gigachat(data: dict, question: str) -> str:
