@@ -187,17 +187,17 @@ def delete_credit(user_id: int, credit_id: str) -> dict:
 
 
 def ai_analyze(user_id: int, question: str) -> dict:
-    openai_key = os.environ.get('OPENAI_API_KEY')
-    if not openai_key:
+    gigachat_key = os.environ.get('GIGACHAT_API_KEY')
+    if not gigachat_key:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'OpenAI API key not configured'}),
+            'body': json.dumps({'error': 'GigaChat API key not configured'}),
             'isBase64Encoded': False
         }
 
     data = get_financial_data(user_id)
-    answer = ask_openai(data, question)
+    answer = ask_gigachat(data, question)
 
     return {
         'statusCode': 200,
@@ -250,43 +250,78 @@ def get_financial_data(user_id: int) -> dict:
     }
 
 
-def ask_openai(data: dict, question: str) -> str:
-    openai_key = os.environ.get('OPENAI_API_KEY')
-
+def build_prompt(data: dict, question: str) -> tuple:
     credits_text = ''
     if data['credits']:
         for c in data['credits']:
             credits_text += (
-                f"- {c['title']}: долг {c['total_debt']:,.0f} ₽, "
+                f"- {c['title']}: долг {c['total_debt']:,.0f} руб., "
                 f"ставка {c['interest_rate']}% годовых, "
-                f"платёж {c['monthly_payment']:,.0f} ₽ каждый {c['payment_day']}-й день\n"
+                f"платёж {c['monthly_payment']:,.0f} руб. каждый {c['payment_day']}-й день\n"
             )
     else:
         credits_text = 'Кредиты не добавлены.\n'
 
-    system_prompt = f"""Ты финансовый советник. Анализируй данные пользователя и давай конкретные рекомендации по управлению кредитами.
-
-ФИНАНСОВАЯ СИТУАЦИЯ (месяц: {data['current_month']}, сегодня {data['today_day']}-е число):
-Доходы: {data['total_income']:,.0f} ₽/мес
-Фиксированные расходы: {data['total_fixed_expenses']:,.0f} ₽/мес
-Переменные расходы в этом месяце: {data['total_variable_expenses']:,.0f} ₽
-Платежи по кредитам: {data['monthly_credit_payments']:,.0f} ₽/мес
-Свободные деньги: {data['free_cash']:,.0f} ₽
-
-КРЕДИТЫ (по убыванию ставки):
-{credits_text}
-
-ПРАВИЛА:
-1. Давай конкретные суммы и даты
-2. Используй стратегию "лавина" (сначала высокая ставка) или "снежный ком" (сначала маленький долг) — объясни выбор
-3. Укажи конкретный день для досрочного платежа
-4. Рассчитай срок погашения при текущем темпе и при досрочном
-5. Отвечай на русском, кратко и по делу"""
-
+    system_prompt = (
+        f"Ты финансовый советник. Анализируй данные пользователя и давай конкретные рекомендации по управлению кредитами.\n\n"
+        f"ФИНАНСОВАЯ СИТУАЦИЯ (месяц: {data['current_month']}, сегодня {data['today_day']}-е число):\n"
+        f"Доходы: {data['total_income']:,.0f} руб./мес\n"
+        f"Фиксированные расходы: {data['total_fixed_expenses']:,.0f} руб./мес\n"
+        f"Переменные расходы в этом месяце: {data['total_variable_expenses']:,.0f} руб.\n"
+        f"Платежи по кредитам: {data['monthly_credit_payments']:,.0f} руб./мес\n"
+        f"Свободные деньги: {data['free_cash']:,.0f} руб.\n\n"
+        f"КРЕДИТЫ (по убыванию ставки):\n{credits_text}\n"
+        f"ПРАВИЛА:\n"
+        f"1. Давай конкретные суммы и даты\n"
+        f"2. Используй стратегию 'лавина' (сначала высокая ставка) или 'снежный ком' (сначала маленький долг) — объясни выбор\n"
+        f"3. Укажи конкретный день для досрочного платежа\n"
+        f"4. Рассчитай срок погашения при текущем темпе и при досрочном\n"
+        f"5. Отвечай на русском, кратко и по делу"
+    )
     user_msg = question if question else "Проанализируй мою кредитную нагрузку и дай рекомендации по досрочному погашению."
+    return system_prompt, user_msg
+
+
+def get_gigachat_token(credentials: str) -> str:
+    import uuid
+    payload = 'scope=GIGACHAT_API_PERS'.encode('utf-8')
+    req = Request(
+        'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+        data=payload,
+        headers={
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'RqUID': str(uuid.uuid4()),
+            'Authorization': f'Basic {credentials}',
+        }
+    )
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with urlopen(req, timeout=30, context=ctx) as resp:
+        result = json.loads(resp.read().decode('utf-8'))
+        return result['access_token']
+
+
+def ask_gigachat(data: dict, question: str) -> str:
+    credentials = os.environ.get('GIGACHAT_API_KEY')
+    system_prompt, user_msg = build_prompt(data, question)
+
+    try:
+        token = get_gigachat_token(credentials)
+    except Exception as e:
+        error_body = ''
+        if hasattr(e, 'read'):
+            try:
+                error_body = e.read().decode('utf-8')
+            except:
+                pass
+        print(f'GigaChat token error: {e} | {error_body}')
+        return f'Ошибка получения токена GigaChat: {str(e)} | {error_body}'
 
     payload = json.dumps({
-        'model': 'gpt-4o-mini',
+        'model': 'GigaChat',
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_msg}
@@ -295,17 +330,22 @@ def ask_openai(data: dict, question: str) -> str:
         'temperature': 0.7
     }).encode('utf-8')
 
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
     req = Request(
-        'https://api.openai.com/v1/chat/completions',
+        'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
         data=payload,
         headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {openai_key}'
+            'Authorization': f'Bearer {token}',
         }
     )
 
     try:
-        with urlopen(req, timeout=30) as resp:
+        with urlopen(req, timeout=30, context=ctx) as resp:
             result = json.loads(resp.read().decode('utf-8'))
             return result['choices'][0]['message']['content']
     except Exception as e:
@@ -315,5 +355,5 @@ def ask_openai(data: dict, question: str) -> str:
                 error_body = e.read().decode('utf-8')
             except:
                 pass
-        print(f'OpenAI error: {type(e).__name__}: {str(e)} | body: {error_body}')
+        print(f'GigaChat error: {e} | {error_body}')
         return f'Ошибка при обращении к AI: {str(e)} | {error_body}'
