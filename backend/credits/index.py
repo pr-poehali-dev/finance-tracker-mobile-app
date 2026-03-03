@@ -197,7 +197,7 @@ def ai_analyze(user_id: int, question: str) -> dict:
         }
 
     data = get_financial_data(user_id)
-    answer = ask_gigachat(data, question)
+    answer = ask_claude(data, question)
 
     return {
         'statusCode': 200,
@@ -282,93 +282,29 @@ def build_prompt(data: dict, question: str) -> tuple:
     return system_prompt, user_msg
 
 
-def get_gigachat_token(credentials: str) -> str:
-    import uuid
-    import ssl
-
-    scopes = ['GIGACHAT_API_PERS', 'GIGACHAT_API_B2B', 'GIGACHAT_API_CORP']
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    last_err = None
-    for scope in scopes:
-        payload = f'scope={scope}'.encode('utf-8')
-        req = Request(
-            'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
-            data=payload,
-            headers={
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json',
-                'RqUID': str(uuid.uuid4()),
-                'Authorization': f'Basic {credentials}',
-            }
-        )
-        try:
-            with urlopen(req, timeout=15, context=ctx) as resp:
-                result = json.loads(resp.read().decode('utf-8'))
-                print(f'GigaChat token OK with scope={scope}')
-                return result['access_token']
-        except Exception as e:
-            body = ''
-            if hasattr(e, 'read'):
-                try: body = e.read().decode('utf-8')
-                except: pass
-            print(f'GigaChat token scope={scope} failed: {e} | {body}')
-            last_err = e
-    raise last_err
-
-
-def ask_gigachat(data: dict, question: str) -> str:
-    credentials = os.environ.get('GIGACHAT_API_KEY')
+def ask_claude(data: dict, question: str) -> str:
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
     system_prompt, user_msg = build_prompt(data, question)
 
-    try:
-        token = get_gigachat_token(credentials)
-    except Exception as e:
-        error_body = ''
-        if hasattr(e, 'read'):
-            try:
-                error_body = e.read().decode('utf-8')
-            except:
-                pass
-        print(f'GigaChat token error: {e} | {error_body}')
-        return f'Ошибка получения токена GigaChat: {str(e)} | {error_body}'
-
     payload = json.dumps({
-        'model': 'GigaChat',
+        'model': 'claude-3-haiku-20240307',
+        'max_tokens': 1024,
+        'system': system_prompt,
         'messages': [
-            {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_msg}
-        ],
-        'max_tokens': 1000,
-        'temperature': 0.7
+        ]
     }).encode('utf-8')
 
-    import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
     req = Request(
-        'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
+        'https://api.anthropic.com/v1/messages',
         data=payload,
         headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {token}',
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
         }
     )
 
-    try:
-        with urlopen(req, timeout=30, context=ctx) as resp:
-            result = json.loads(resp.read().decode('utf-8'))
-            return result['choices'][0]['message']['content']
-    except Exception as e:
-        error_body = ''
-        if hasattr(e, 'read'):
-            try:
-                error_body = e.read().decode('utf-8')
-            except:
-                pass
-        print(f'GigaChat error: {e} | {error_body}')
-        return f'Ошибка при обращении к AI: {str(e)} | {error_body}'
+    with urlopen(req, timeout=25) as resp:
+        result = json.loads(resp.read().decode('utf-8'))
+        return result['content'][0]['text']
