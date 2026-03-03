@@ -283,6 +283,7 @@ def build_prompt(data: dict, question: str) -> tuple:
 
 def ask_claude(data: dict, question: str) -> str:
     api_key = os.environ.get('CLOUDE_API')
+    print(f'CLOUDE_API present: {bool(api_key)}, starts: {api_key[:15] if api_key else "EMPTY"}')
     system_prompt, user_msg = build_prompt(data, question)
 
     payload = json.dumps({
