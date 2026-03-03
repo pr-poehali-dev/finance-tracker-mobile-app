@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST без токена",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Authorization required"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
