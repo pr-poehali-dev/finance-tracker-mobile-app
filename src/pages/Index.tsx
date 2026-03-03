@@ -10,6 +10,7 @@ import IncomeTab from '@/components/tabs/IncomeTab';
 import { ForecastTab, SettingsTab } from '@/components/tabs/OtherTabs';
 import FixedExpensesTab from '@/components/tabs/FixedExpensesTab';
 import PlanningTab from '@/components/tabs/PlanningTab';
+import CreditsTab from '@/components/tabs/CreditsTab';
 
 const EXPENSE_CATEGORIES = [
   { value: 'food', label: 'Продукты', color: '#0EA5E9' },
@@ -228,7 +229,7 @@ const Index = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="-mx-3 sm:mx-0">
-            <TabsList className="w-full inline-flex sm:grid sm:grid-cols-7 h-auto sm:h-12 overflow-x-auto px-3 sm:px-0 scrollbar-hide">
+            <TabsList className="w-full inline-flex sm:grid sm:grid-cols-8 h-auto sm:h-12 overflow-x-auto px-3 sm:px-0 scrollbar-hide">
               <TabsTrigger value="overview" className="text-xs sm:text-base flex-shrink-0">
                 <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
                 <span className="hidden sm:inline">Обзор</span>
@@ -252,6 +253,10 @@ const Index = () => {
               <TabsTrigger value="planning" className="text-xs sm:text-base flex-shrink-0">
                 <Icon name="Target" size={16} className="sm:mr-2" />
                 <span className="hidden sm:inline">Планир.</span>
+              </TabsTrigger>
+              <TabsTrigger value="credits" className="text-xs sm:text-base flex-shrink-0">
+                <Icon name="CreditCard" size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Кредиты</span>
               </TabsTrigger>
               <TabsTrigger value="settings" className="text-xs sm:text-base flex-shrink-0">
                 <Icon name="Settings" size={16} className="sm:mr-2" />
@@ -318,6 +323,10 @@ const Index = () => {
 
           <TabsContent value="planning">
             <PlanningTab expenses={expenses} />
+          </TabsContent>
+
+          <TabsContent value="credits">
+            <CreditsTab onUpdate={() => {}} />
           </TabsContent>
 
           <TabsContent value="settings">

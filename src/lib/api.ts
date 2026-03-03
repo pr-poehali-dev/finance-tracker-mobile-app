@@ -2,6 +2,7 @@ const AUTH_URL = 'https://functions.poehali.dev/8b7a1651-e473-4bba-865c-e549f744
 const TRANSACTIONS_URL = 'https://functions.poehali.dev/d2528ab0-328e-4eac-a8bc-8457fda3cee4';
 const FIXED_PLANNING_URL = 'https://functions.poehali.dev/d5129445-08d9-4bd9-b376-c361d759be21';
 const AUTO_EXPENSES_URL = 'https://functions.poehali.dev/6f48e8e7-ba72-4f10-b4ed-d9cf96946618';
+const CREDITS_URL = 'https://functions.poehali.dev/0e7e6b0f-61a4-47fd-a71d-7705df2f7bc1';
 
 export interface User {
   id: number;
@@ -24,6 +25,16 @@ export interface FixedExpense {
   category: string;
   dayOfMonth: number;
   isActive: boolean;
+  createdAt: string;
+}
+
+export interface Credit {
+  id: number;
+  title: string;
+  totalDebt: number;
+  interestRate: number;
+  monthlyPayment: number;
+  paymentDay: number;
   createdAt: string;
 }
 
@@ -412,6 +423,69 @@ export const api = {
     },
   },
   
+  credits: {
+    getAll: async (): Promise<Credit[]> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch(CREDITS_URL, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to get credits');
+      const data = await response.json();
+      return data.credits;
+    },
+
+    add: async (credit: Omit<Credit, 'id' | 'createdAt'>): Promise<Credit> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch(CREDITS_URL, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(credit),
+      });
+      if (!response.ok) throw new Error('Failed to add credit');
+      const data = await response.json();
+      return data.credit;
+    },
+
+    update: async (credit: Omit<Credit, 'createdAt'>): Promise<void> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch(CREDITS_URL, {
+        method: 'PUT',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(credit),
+      });
+      if (!response.ok) throw new Error('Failed to update credit');
+    },
+
+    delete: async (id: number): Promise<void> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch(`${CREDITS_URL}?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to delete credit');
+    },
+
+    askAI: async (question: string): Promise<string> => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch(`${CREDITS_URL}?action=ai`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ question }),
+      });
+      if (!response.ok) throw new Error('Failed to get AI advice');
+      const data = await response.json();
+      return data.answer;
+    },
+  },
+
   autoExpenses: {
     process: async (year?: number, month?: number): Promise<AutoExpenseResult> => {
       const token = localStorage.getItem('auth_token');
