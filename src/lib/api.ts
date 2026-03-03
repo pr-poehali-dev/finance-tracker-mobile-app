@@ -71,6 +71,7 @@ export const api = {
       try {
         const response = await fetch(AUTH_URL, {
           method: 'POST',
+          mode: 'cors',
           headers: {
             'Content-Type': 'application/json',
           },
