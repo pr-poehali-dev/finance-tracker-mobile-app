@@ -105,8 +105,9 @@ const CreditsTab = ({ onUpdate }: CreditsTabProps) => {
     try {
       const answer = await api.credits.askAI(question);
       setAiAnswer(answer);
-    } catch {
-      toast({ title: 'Ошибка AI-анализа', variant: 'destructive' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Неизвестная ошибка';
+      toast({ title: 'Ошибка AI-анализа', description: msg, variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }

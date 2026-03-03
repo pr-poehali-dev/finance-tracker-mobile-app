@@ -480,8 +480,15 @@ export const api = {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ question }),
       });
-      if (!response.ok) throw new Error('Failed to get AI advice');
       const data = await response.json();
+      if (!response.ok) {
+        console.error('AI error response:', data);
+        throw new Error(data.error || data.answer || 'Failed to get AI advice');
+      }
+      if (data.answer && data.answer.startsWith('Ошибка')) {
+        console.error('AI returned error:', data.answer);
+        throw new Error(data.answer);
+      }
       return data.answer;
     },
   },
