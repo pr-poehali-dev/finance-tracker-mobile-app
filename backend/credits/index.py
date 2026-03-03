@@ -307,5 +307,12 @@ def ask_openai(data: dict, question: str) -> str:
         with urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read().decode('utf-8'))
             return result['choices'][0]['message']['content']
-    except URLError as e:
-        return f'Ошибка при обращении к AI: {str(e)}'
+    except Exception as e:
+        error_body = ''
+        if hasattr(e, 'read'):
+            try:
+                error_body = e.read().decode('utf-8')
+            except:
+                pass
+        print(f'OpenAI error: {type(e).__name__}: {str(e)} | body: {error_body}')
+        return f'Ошибка при обращении к AI: {str(e)} | {error_body}'
