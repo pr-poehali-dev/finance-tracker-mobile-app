@@ -82,7 +82,7 @@ const Index = () => {
   const loadFixedExpenses = async () => {
     try {
       const data = await api.fixedExpenses.getAll();
-      setFixedExpenses(data.filter(f => f.isActive));
+      setFixedExpenses(data);
     } catch (error) {
       console.error('Failed to load fixed expenses:', error);
     }
