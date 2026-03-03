@@ -94,7 +94,6 @@ const FixedExpensesTab = ({ onUpdate }: FixedExpensesTabProps) => {
   };
 
   const totalMonthly = items
-    .filter(item => item.isActive)
     .reduce((sum, item) => sum + item.amount, 0);
 
   const processAutoExpenses = async () => {
