@@ -187,12 +187,11 @@ def delete_credit(user_id: int, credit_id: str) -> dict:
 
 
 def ai_analyze(user_id: int, question: str) -> dict:
-    gigachat_key = os.environ.get('GIGACHAT_API_KEY')
-    if not gigachat_key:
+    if not os.environ.get('ANTHROPIC_API_KEY'):
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'GigaChat API key not configured'}),
+            'body': json.dumps({'error': 'Anthropic API key not configured'}),
             'isBase64Encoded': False
         }
 
