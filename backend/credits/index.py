@@ -187,7 +187,7 @@ def delete_credit(user_id: int, credit_id: str) -> dict:
 
 
 def ai_analyze(user_id: int, question: str) -> dict:
-    if not os.environ.get('ANTHROPIC_API_KEY'):
+    if not os.environ.get('CLOUDE_API'):
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -282,7 +282,7 @@ def build_prompt(data: dict, question: str) -> tuple:
 
 
 def ask_claude(data: dict, question: str) -> str:
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    api_key = os.environ.get('CLOUDE_API')
     system_prompt, user_msg = build_prompt(data, question)
 
     payload = json.dumps({
